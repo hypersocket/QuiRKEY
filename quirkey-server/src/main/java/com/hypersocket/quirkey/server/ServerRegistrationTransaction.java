@@ -47,12 +47,12 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		this.serverURL = serverURL;
 		this.serverKey = serverKey;
 
-		KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ECDH", "SC");
+		KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ECDH", ECDSAUtils.getJCEProviderName());
 		ECNamedCurveParameterSpec namedSpec = ECNamedCurveTable
 				.getParameterSpec("secp256r1");
 		keyGen.initialize(namedSpec, new SecureRandom());
 
-		keyAgreement = KeyAgreement.getInstance("ECDH", "SC");
+		keyAgreement = KeyAgreement.getInstance("ECDH", ECDSAUtils.getJCEProviderName());
 		KeyPair keyPair = keyGen.generateKeyPair();
 		keyAgreement.init(keyPair.getPrivate());
 

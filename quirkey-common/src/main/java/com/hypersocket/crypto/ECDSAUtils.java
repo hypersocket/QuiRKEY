@@ -30,18 +30,39 @@ import org.spongycastle.openssl.jcajce.JcaPEMKeyConverter;
 
 public class ECDSAUtils {
 
-	static {
-		Security.insertProviderAt(
-				new org.spongycastle.jce.provider.BouncyCastleProvider(), 0);
-	}
+//	static {
+//		
+//			Security.insertProviderAt(
+//					new org.spongycastle.jce.provider.BouncyCastleProvider(), 0);
+//	
+//	}
 
+	private static String jceProviderName = "";
+	
+	
+	public static void checkJCEProvider() {
+		if(jceProviderName==null) {
+			throw new IllegalStateException("You have not set JCE provider name!");
+		}
+	}
+	
+	public static void setJCEProviderName(String name) {
+		jceProviderName = name;
+	}
+	
+	public static String getJCEProviderName() {
+		return jceProviderName;
+	}
+	
 	public static KeyPair generateKeyPair(String curve)
 			throws InvalidAlgorithmParameterException,
 			NoSuchAlgorithmException, NoSuchProviderException {
 
+		checkJCEProvider();
+		
 		ECGenParameterSpec ecGenSpec = new ECGenParameterSpec(curve);
 
-		KeyPairGenerator g = KeyPairGenerator.getInstance("ECDSA", "SC");
+		KeyPairGenerator g = KeyPairGenerator.getInstance("ECDSA", jceProviderName);
 
 		g.initialize(ecGenSpec, new SecureRandom());
 
@@ -52,6 +73,8 @@ public class ECDSAUtils {
 
 	public static KeyPair loadKeyPair(File keyfile) throws IOException {
 
+		checkJCEProvider();
+		
 		InputStream in = new FileInputStream(keyfile);
 		Reader r = new InputStreamReader(in);
 		PEMParser parser = new PEMParser(r);
@@ -63,7 +86,7 @@ public class ECDSAUtils {
 			}
 
 			if (obj instanceof PEMKeyPair) {
-				obj = new JcaPEMKeyConverter().setProvider("SC").getKeyPair(
+				obj = new JcaPEMKeyConverter().setProvider(jceProviderName).getKeyPair(
 						(PEMKeyPair) obj);
 			}
 
@@ -83,6 +106,8 @@ public class ECDSAUtils {
 	public static void saveKeyPair(KeyPair pair, File keyfile)
 			throws IOException {
 
+		checkJCEProvider();
+		
 		OutputStream out = new FileOutputStream(keyfile);
 		PEMWriter pem = new PEMWriter(new OutputStreamWriter(out));
 
@@ -98,7 +123,10 @@ public class ECDSAUtils {
 	public static byte[] sign(PrivateKey key, byte[] data) throws IOException,
 			NoSuchAlgorithmException, NoSuchProviderException,
 			SignatureException, InvalidKeyException {
-		Signature sig = Signature.getInstance("SHA256/ECDSA", "SC");
+		
+		checkJCEProvider();
+		
+		Signature sig = Signature.getInstance("SHA256/ECDSA", jceProviderName);
 		sig.initSign(key);
 		sig.update(data);
 		return sig.sign();
@@ -107,7 +135,10 @@ public class ECDSAUtils {
 	public static boolean verify(PublicKey key, byte[] signature, byte[] data) throws IOException,
 			NoSuchAlgorithmException, NoSuchProviderException,
 			SignatureException, InvalidKeyException {
-		Signature sig = Signature.getInstance("SHA256/ECDSA", "SC");
+		
+		checkJCEProvider();
+		
+		Signature sig = Signature.getInstance("SHA256/ECDSA", jceProviderName);
 		sig.initVerify(key);
 		sig.update(data);
 		return sig.verify(signature);

@@ -2,8 +2,11 @@ package com.hypersocket.quirkey.tests;
 
 import java.net.URL;
 import java.security.KeyPair;
+import java.security.Security;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.hypersocket.crypto.ECDSAUtils;
@@ -12,6 +15,13 @@ import com.hypersocket.quirkey.server.ServerRegistrationTransaction;
 
 public class TestClientServerInteraction {
 
+	@BeforeClass
+	public static void setupJCEProvider() {
+		
+		Security.insertProviderAt(new BouncyCastleProvider(), 0);
+		ECDSAUtils.setJCEProviderName("BC");
+	}
+	
 	@Test
 	public void testClientServer() throws Exception {
 		

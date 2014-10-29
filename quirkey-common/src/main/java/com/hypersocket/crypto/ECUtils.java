@@ -56,8 +56,11 @@ public class ECUtils {
 
 
 	public static ECPublicKey decodeKey(byte[] encoded, String namedCurve) throws InvalidKeySpecException, NoSuchAlgorithmException, NoSuchProviderException{
-	    ECNamedCurveParameterSpec params = ECNamedCurveTable.getParameterSpec(namedCurve);
-	    KeyFactory fact = KeyFactory.getInstance("ECDSA", "SC");
+	    
+		ECDSAUtils.checkJCEProvider();
+		
+		ECNamedCurveParameterSpec params = ECNamedCurveTable.getParameterSpec(namedCurve);
+	    KeyFactory fact = KeyFactory.getInstance("ECDSA", ECDSAUtils.getJCEProviderName());
 	    ECCurve curve = params.getCurve();
 	    java.security.spec.EllipticCurve ellipticCurve = EC5Util.convertCurve(curve, params.getSeed());
 	    java.security.spec.ECPoint point=ECPointUtil.decodePoint(ellipticCurve, encoded);

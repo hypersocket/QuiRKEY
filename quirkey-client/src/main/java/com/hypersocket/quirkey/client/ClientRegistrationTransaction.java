@@ -56,12 +56,12 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 			serverPublicKey = reader.readBinaryString();
 
 			KeyPairGenerator keyGen = KeyPairGenerator
-					.getInstance("ECDH", "SC");
+					.getInstance("ECDH");
 			ECNamedCurveParameterSpec namedSpec = ECNamedCurveTable
 					.getParameterSpec("secp256r1");
 			keyGen.initialize(namedSpec, new SecureRandom());
 
-			KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH", "SC");
+			KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH");
 			KeyPair keyPair = keyGen.generateKeyPair();
 			keyAgreement.init(keyPair.getPrivate());
 

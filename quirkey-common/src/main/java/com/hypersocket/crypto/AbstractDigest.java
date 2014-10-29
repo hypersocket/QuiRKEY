@@ -17,7 +17,7 @@ public class AbstractDigest {
 	String jceAlgorithm;
 	
 	public AbstractDigest(String jceAlgorithm) throws NoSuchAlgorithmException, NoSuchProviderException {
-		digest = MessageDigest.getInstance(jceAlgorithm, "SC");
+		digest = MessageDigest.getInstance(jceAlgorithm);
 	}
 	
 	public byte[] doFinal() {
