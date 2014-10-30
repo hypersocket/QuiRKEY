@@ -2,8 +2,8 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<artifactId>quirkey-common</artifactId>
-	<name>QuiRKEY Common</name>
+	<artifactId>quirkey-spongycastle</artifactId>
+	<name>QuiRKEY SpongyCastle EC Provider</name>
 
 	<parent>
 		<groupId>com.hypersocket</groupId>
@@ -14,9 +14,14 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>commons-codec</groupId>
-			<artifactId>commons-codec</artifactId>
-			<version>1.9</version>
+			<groupId>com.hypersocket</groupId>
+			<artifactId>quirkey-common</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.madgag.spongycastle</groupId>
+			<artifactId>pkix</artifactId>
+			<version>1.51.0.0</version>
 		</dependency>
 	</dependencies>
 </project>

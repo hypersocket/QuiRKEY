@@ -2,30 +2,18 @@ package com.hypersocket.quirkey.client;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.InvalidKeyException;
-import java.security.KeyFactory;
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.PublicKey;
-import java.security.SecureRandom;
-import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.UUID;
 
 import javax.crypto.KeyAgreement;
 
-import org.spongycastle.jce.ECNamedCurveTable;
-import org.spongycastle.jce.interfaces.ECPublicKey;
-import org.spongycastle.jce.spec.ECNamedCurveParameterSpec;
-import org.spongycastle.util.encoders.Base64;
+import org.apache.commons.codec.binary.Base64;
 
 import com.hypersocket.crypto.ByteArrayReader;
 import com.hypersocket.crypto.ByteArrayWriter;
-import com.hypersocket.crypto.ECDSAUtils;
-import com.hypersocket.crypto.ECUtils;
+import com.hypersocket.crypto.ECCryptoProvider;
+import com.hypersocket.crypto.ECCryptoProviderFactory;
 import com.hypersocket.crypto.QuiRKEYTransaction;
 
 public class ClientRegistrationTransaction extends QuiRKEYTransaction {
@@ -39,14 +27,16 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 	byte[] clientExchangeHash;
 	BigInteger secret;
 	KeyPair clientKeyPair;
-
+	ECCryptoProvider ecProvider;
+	KeyAgreement keyAgreement;
+	
 	public ClientRegistrationTransaction(KeyPair clientKeyPair,
-			String encodedRegistration) throws IOException {
+			String encodedRegistration, String curve) throws IOException {
 
 		this.clientKeyPair = clientKeyPair;
-
+		this. ecProvider = ECCryptoProviderFactory.createInstance(curve);
 		ByteArrayReader reader = new ByteArrayReader(
-				Base64.decode(encodedRegistration));
+				Base64.decodeBase64(encodedRegistration));
 
 		try {
 			registrationId = reader.readString();
@@ -55,20 +45,13 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 			Q_C = reader.readBinaryString();
 			serverPublicKey = reader.readBinaryString();
 
-			KeyPairGenerator keyGen = KeyPairGenerator
-					.getInstance("ECDH");
-			ECNamedCurveParameterSpec namedSpec = ECNamedCurveTable
-					.getParameterSpec("secp256r1");
-			keyGen.initialize(namedSpec, new SecureRandom());
+			KeyPair ecdhKeyPair = ecProvider.generateKeyPair();
+			this.keyAgreement = ecProvider.createKeyAgreement(ecdhKeyPair);
 
-			KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH");
-			KeyPair keyPair = keyGen.generateKeyPair();
-			keyAgreement.init(keyPair.getPrivate());
+			PublicKey ec = ecdhKeyPair.getPublic();
+			Q_S = ecProvider.generateQ(ec);
 
-			ECPublicKey ec = (ECPublicKey) keyPair.getPublic();
-			Q_S = ECUtils.toByteArray(ec.getQ(), namedSpec.getCurve());
-
-			keyAgreement.doPhase(ECUtils.decodeKey(Q_C, "secp256r1"), true);
+			keyAgreement.doPhase(ecProvider.decodeKey(Q_C), true);
 
 			byte[] tmp = keyAgreement.generateSecret();
 			if ((tmp[0] & 0x80) == 0x80) {
@@ -81,6 +64,8 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 			secret = new BigInteger(tmp);
 		} catch (Exception e) {
 			throw new IOException(e);
+		} finally {
+			reader.close();
 		}
 
 	}
@@ -102,27 +87,29 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 					clientKeyPair.getPublic().getEncoded(), username, mobileId,
 					registrationId, secret, mobileName, url);
 
-			writer.writeBinaryString(ECDSAUtils.sign(clientKeyPair.getPrivate(), clientExchangeHash));
+			writer.writeBinaryString(ecProvider.sign(clientKeyPair.getPrivate(), clientExchangeHash));
 			
-			return Base64.toBase64String(writer.toByteArray());
+			return Base64.encodeBase64String(writer.toByteArray());
 		} catch (Exception e) {
 			throw new IOException(e);
+		} finally {
+			writer.close();
 		}
 	}
 
 	public boolean verifyReqistrationResponse(String encodedResponse) throws IOException {
 
-		ByteArrayReader reader = new ByteArrayReader(Base64.decode(encodedResponse));
+		ByteArrayReader reader = new ByteArrayReader(Base64.decodeBase64(encodedResponse));
 
 		try {
 			byte[] signature = reader.readBinaryString();
 
-			KeyFactory keyFactory = KeyFactory.getInstance("ECDSA");
-			X509EncodedKeySpec spec = new X509EncodedKeySpec(serverPublicKey);
-			PublicKey serverPublicKey = keyFactory.generatePublic(spec);
-			return ECDSAUtils.verify(serverPublicKey, signature, clientExchangeHash);
+			PublicKey publicKey = ecProvider.decodePublicKey(serverPublicKey);
+			return ecProvider.verify(publicKey, signature, clientExchangeHash);
 		} catch (Exception e) {
 			throw new IOException(e);
+		} finally {
+			reader.close();
 		}
 	}
 }

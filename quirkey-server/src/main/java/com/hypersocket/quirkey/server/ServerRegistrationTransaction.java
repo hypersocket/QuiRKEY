@@ -5,40 +5,36 @@ import java.math.BigInteger;
 import java.net.URL;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
-import java.security.KeyFactory;
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
-import java.security.SecureRandom;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.UUID;
 
 import javax.crypto.KeyAgreement;
 
-import org.spongycastle.jce.ECNamedCurveTable;
-import org.spongycastle.jce.interfaces.ECPublicKey;
-import org.spongycastle.jce.spec.ECNamedCurveParameterSpec;
-import org.spongycastle.util.encoders.Base64;
+import org.apache.commons.codec.binary.Base64;
 
 import com.hypersocket.crypto.ByteArrayReader;
 import com.hypersocket.crypto.ByteArrayWriter;
-import com.hypersocket.crypto.ECDSAUtils;
-import com.hypersocket.crypto.ECUtils;
+import com.hypersocket.crypto.ECCryptoProvider;
+import com.hypersocket.crypto.ECCryptoProviderFactory;
 import com.hypersocket.crypto.QuiRKEYTransaction;
 
 public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 
+	static final String EC_CURVE = "secp256r1";
+	
 	KeyAgreement keyAgreement;
 	byte[] Q_C;
 	String username;
 	URL serverURL;
 	KeyPair serverKey;
 	String registrationId;
-	ECPublicKey ec;
-
-	public ServerRegistrationTransaction(String username, URL serverURL, KeyPair serverKey)
+	PublicKey ec;
+	ECCryptoProvider ecProvider;
+	
+	public ServerRegistrationTransaction(String username, URL serverURL, KeyPair serverKey, String curve)
 			throws InvalidAlgorithmParameterException,
 			NoSuchAlgorithmException, NoSuchProviderException,
 			InvalidKeyException {
@@ -46,21 +42,13 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		this.username = username;
 		this.serverURL = serverURL;
 		this.serverKey = serverKey;
-
-		KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ECDH", ECDSAUtils.getJCEProviderName());
-		ECNamedCurveParameterSpec namedSpec = ECNamedCurveTable
-				.getParameterSpec("secp256r1");
-		keyGen.initialize(namedSpec, new SecureRandom());
-
-		keyAgreement = KeyAgreement.getInstance("ECDH", ECDSAUtils.getJCEProviderName());
-		KeyPair keyPair = keyGen.generateKeyPair();
-		keyAgreement.init(keyPair.getPrivate());
-
-		ec = (ECPublicKey) keyPair.getPublic();
-
-		Q_C = ECUtils.toByteArray(ec.getQ(), namedSpec.getCurve());
-
-		registrationId = UUID.randomUUID().toString();
+		
+		ecProvider = ECCryptoProviderFactory.createInstance(curve);
+		KeyPair ecdhKeyPair = ecProvider.generateKeyPair();
+		this.keyAgreement = ecProvider.createKeyAgreement(ecdhKeyPair);
+		this.ec = ecdhKeyPair.getPublic();
+		this.Q_C = ecProvider.generateQ(ec);
+		this.registrationId = UUID.randomUUID().toString();
 
 	}
 
@@ -74,7 +62,7 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 			msg.writeBinaryString(Q_C);
 			msg.writeBinaryString(serverKey.getPublic().getEncoded());
 
-			return Base64.toBase64String(msg.toByteArray());
+			return Base64.encodeBase64String(msg.toByteArray());
 		} finally {
 			msg.close();
 		}
@@ -83,7 +71,7 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 	public String verifyResponse(String encodedResponse) throws IOException {
 
 		ByteArrayReader reader = new ByteArrayReader(
-				Base64.decode(encodedResponse));
+				Base64.decodeBase64(encodedResponse));
 
 		try {
 
@@ -95,11 +83,8 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 
 			byte[] signature = reader.readBinaryString();
 
-			KeyFactory keyFactory = KeyFactory.getInstance("ECDSA");
-			X509EncodedKeySpec spec = new X509EncodedKeySpec(clientKey);
-			PublicKey clientPublicKey = keyFactory.generatePublic(spec);
-
-			keyAgreement.doPhase(ECUtils.decodeKey(Q_S, "secp256r1"), true);
+			PublicKey clientPublicKey = ecProvider.decodePublicKey(clientKey);
+			keyAgreement.doPhase(ecProvider.decodeKey(Q_S), true);
 
 			byte[] tmp = keyAgreement.generateSecret();
 			if ((tmp[0] & 0x80) == 0x80) {
@@ -116,7 +101,7 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 					registrationId, secret, mobileName,
 					serverURL.toExternalForm());
 
-			if (!ECDSAUtils.verify(clientPublicKey, signature, exchangeHash)) {
+			if (!ecProvider.verify(clientPublicKey, signature, exchangeHash)) {
 				throw new Exception("Invalid client signature");
 			}
 
@@ -125,10 +110,10 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 			ByteArrayWriter signatureResponse = new ByteArrayWriter();
 
 			try {
-				writer.writeBinaryString(ECDSAUtils.sign(
+				writer.writeBinaryString(ecProvider.sign(
 						serverKey.getPrivate(), exchangeHash));
 
-				return Base64.toBase64String(writer.toByteArray());
+				return Base64.encodeBase64String(writer.toByteArray());
 
 			} finally {
 				writer.close();

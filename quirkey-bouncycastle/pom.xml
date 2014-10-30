@@ -2,8 +2,8 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<artifactId>quirkey-examples</artifactId>
-	<name>QuiRKEY Examples</name>
+	<artifactId>quirkey-bouncycastle</artifactId>
+	<name>QuiRKEY BouncyCastle EC Provider</name>
 
 	<parent>
 		<groupId>com.hypersocket</groupId>
@@ -15,26 +15,18 @@
 	<dependencies>
 		<dependency>
 			<groupId>com.hypersocket</groupId>
-			<artifactId>quirkey-server</artifactId>
+			<artifactId>quirkey-common</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.hypersocket</groupId>
-			<artifactId>quirkey-client</artifactId>
-			<version>${project.version}</version>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk15on</artifactId>
+			<version>1.51</version>
 		</dependency>
 		<dependency>
-			<groupId>com.hypersocket</groupId>
-			<artifactId>quirkey-bouncycastle</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcpkix-jdk15on</artifactId>
+			<version>1.51</version>
 		</dependency>
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.11</version>
-			<scope>test</scope>
-		</dependency>
-
 	</dependencies>
 </project>
