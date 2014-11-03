@@ -82,12 +82,11 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 		return url;
 	}
 
-	public String generateRegistrationRequest(String mobileName) throws IOException {
+	public String generateRegistrationRequest(String mobileId, String mobileName) throws IOException {
 		
 		ByteArrayWriter writer = new ByteArrayWriter();
 
 		try {
-			String mobileId = UUID.randomUUID().toString();
 
 			writer.writeString(registrationId);
 			writer.writeString(mobileId);
