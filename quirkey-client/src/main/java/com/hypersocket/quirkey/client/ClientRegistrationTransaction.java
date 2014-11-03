@@ -70,6 +70,18 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 
 	}
 
+	public String getRegistrationId() {
+		return registrationId;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public String getUrl() {
+		return url;
+	}
+
 	public String generateRegistrationRequest(String mobileName) throws IOException {
 		
 		ByteArrayWriter writer = new ByteArrayWriter();
