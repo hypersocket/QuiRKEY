@@ -37,7 +37,7 @@ public class TestClientServerInteraction {
 		ClientRegistrationTransaction client = new ClientRegistrationTransaction(clientKey, 
 				registrationInfo, "secp256r1");
 		
-		String clientRequest = client.generateRegistrationRequest("Lee's Mobile");
+		String clientRequest = client.generateRegistrationRequest("Mobile ID", "Lee's Mobile");
 		String serverResponse = server.verifyResponse(clientRequest);
 		Assert.assertTrue(client.verifyReqistrationResponse(serverResponse));
 	}
