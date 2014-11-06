@@ -24,7 +24,7 @@ import com.hypersocket.crypto.QuiRKEYTransaction;
 public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 
 	static final String EC_CURVE = "secp256r1";
-	
+
 	KeyAgreement keyAgreement;
 	byte[] Q_C;
 	String username;
@@ -33,8 +33,11 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 	String registrationId;
 	PublicKey ec;
 	ECCryptoProvider ecProvider;
-	
-	public ServerRegistrationTransaction(String username, URL serverURL, KeyPair serverKey, String curve)
+	String mobileId;
+	String mobileName;
+
+	public ServerRegistrationTransaction(String username, URL serverURL,
+			KeyPair serverKey, String curve)
 			throws InvalidAlgorithmParameterException,
 			NoSuchAlgorithmException, NoSuchProviderException,
 			InvalidKeyException {
@@ -42,7 +45,7 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		this.username = username;
 		this.serverURL = serverURL;
 		this.serverKey = serverKey;
-		
+
 		ecProvider = ECCryptoProviderFactory.createInstance(curve);
 		KeyPair ecdhKeyPair = ecProvider.generateKeyPair();
 		this.keyAgreement = ecProvider.createKeyAgreement(ecdhKeyPair);
@@ -50,6 +53,18 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		this.Q_C = ecProvider.generateQ(ec);
 		this.registrationId = UUID.randomUUID().toString();
 
+	}
+
+	public String getMobileId() {
+		return mobileId;
+	}
+
+	public String getMobileName() {
+		return mobileName;
+	}
+
+	public String getRegistrationId() {
+		return registrationId;
 	}
 
 	public String generateRegistrationInfo() throws IOException {
@@ -75,9 +90,9 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 
 		try {
 
-			String registrationId = reader.readString();
-			String mobileId = reader.readString();
-			String mobileName = reader.readString();
+			registrationId = reader.readString();
+			mobileId = reader.readString();
+			mobileName = reader.readString();
 			byte[] Q_S = reader.readBinaryString();
 			byte[] clientKey = reader.readBinaryString();
 
