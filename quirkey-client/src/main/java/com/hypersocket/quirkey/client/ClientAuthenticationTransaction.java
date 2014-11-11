@@ -15,34 +15,30 @@ import com.hypersocket.crypto.ECCryptoProvider;
 import com.hypersocket.crypto.ECCryptoProviderFactory;
 import com.hypersocket.crypto.QuiRKEYTransaction;
 
-public class ClientRegistrationTransaction extends QuiRKEYTransaction {
+public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
-	String registrationId;
-	String username;
+	String authenticationId;
 	String url;
 	byte[] Q_C;
 	byte[] Q_S;
-	byte[] serverPublicKey;
 	byte[] clientExchangeHash;
 	BigInteger secret;
 	KeyPair clientKeyPair;
 	ECCryptoProvider ecProvider;
 	KeyAgreement keyAgreement;
 
-	public ClientRegistrationTransaction(KeyPair clientKeyPair,
-			String encodedRegistration, String curve) throws IOException {
+	public ClientAuthenticationTransaction(KeyPair clientKeyPair,
+			String encodedAuthentication, String curve) throws IOException {
 
 		this.clientKeyPair = clientKeyPair;
 		this.ecProvider = ECCryptoProviderFactory.createInstance(curve);
 		ByteArrayReader reader = new ByteArrayReader(
-				Base64.decode(encodedRegistration));
+				Base64.decode(encodedAuthentication));
 
 		try {
-			registrationId = reader.readString();
-			username = reader.readString();
+			authenticationId = reader.readString();
 			url = reader.readString();
 			Q_C = reader.readBinaryString();
-			serverPublicKey = reader.readBinaryString();
 
 			KeyPair ecdhKeyPair = ecProvider.generateKeyPair();
 			this.keyAgreement = ecProvider.createKeyAgreement(ecdhKeyPair);
@@ -69,30 +65,23 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 
 	}
 
-	public String getRegistrationId() {
-		return registrationId;
-	}
-
-	public String getUsername() {
-		return username;
+	public String getAuthenticationId() {
+		return authenticationId;
 	}
 
 	public String getUrl() {
 		return url;
 	}
 
-	public byte[] getServerPublicKey() {
-		return serverPublicKey;
-	}
-
-	public String generateRegistrationRequest(String mobileId, String mobileName)
+	public String generateAuthenticationRequest(String mobileId,
+			String mobileName, byte[] serverPublicKey, String username)
 			throws IOException {
 
 		ByteArrayWriter writer = new ByteArrayWriter();
 
 		try {
 
-			writer.writeString(registrationId);
+			writer.writeString(authenticationId);
 			writer.writeString(mobileId);
 			writer.writeString(mobileName);
 			writer.writeBinaryString(Q_S);
@@ -100,7 +89,8 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 
 			clientExchangeHash = generateExchangeHash(Q_C, Q_S,
 					serverPublicKey, clientKeyPair.getPublic().getEncoded(),
-					username, mobileId, registrationId, secret, mobileName, url);
+					username, mobileId, authenticationId, secret, mobileName,
+					url);
 
 			writer.writeBinaryString(ecProvider.sign(
 					clientKeyPair.getPrivate(), clientExchangeHash));
@@ -113,8 +103,8 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 		}
 	}
 
-	public boolean verifyRegistrationResponse(String encodedResponse)
-			throws IOException {
+	public boolean verifyAuthenticationResponse(String encodedResponse,
+			byte[] serverPublicKey) throws IOException {
 
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decode(encodedResponse));
