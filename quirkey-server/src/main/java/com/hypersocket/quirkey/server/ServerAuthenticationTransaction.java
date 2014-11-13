@@ -67,6 +67,10 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		return status;
 	}
 
+	public Date getCreationDate() {
+		return creationDate;
+	}
+
 	public String generateAuthenticationInfo() throws IOException {
 		ByteArrayWriter msg = new ByteArrayWriter();
 

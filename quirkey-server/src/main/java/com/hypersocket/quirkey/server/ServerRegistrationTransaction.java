@@ -80,6 +80,10 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		return status;
 	}
 
+	public Date getCreationDate() {
+		return creationDate;
+	}
+
 	public static String getRegistrationId(String encodedResponse)
 			throws IOException {
 		ByteArrayReader reader = new ByteArrayReader(
