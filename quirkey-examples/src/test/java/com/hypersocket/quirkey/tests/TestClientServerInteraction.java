@@ -74,22 +74,29 @@ public class TestClientServerInteraction {
 		if (registrationClient
 				.verifyRegistrationResponse(registrationServerResponse)) {
 			ServerAuthenticationTransaction authenticationServer = new ServerAuthenticationTransaction(
-					new URL("http://localhost"), serverKey, "secp256r1");
+					new URL("http://localhost"), "secp256r1");
 
 			String authenticationInfo = authenticationServer
 					.generateAuthenticationInfo();
 
 			ClientAuthenticationTransaction authenticationClient = new ClientAuthenticationTransaction(
-					clientKey, authenticationInfo, "secp256r1");
+					authenticationInfo, "secp256r1");
 
 			String authenticationClientRequest = authenticationClient
 					.generateAuthenticationRequest(ID, MOBILE_NAME,
 							registrationClient.getServerPublicKey(),
-							registrationClient.getUsername());
+							registrationClient.getUsername(), clientKey
+									.getPrivate().getEncoded(), clientKey
+									.getPublic().getEncoded());
 
-			Assert.assertTrue(authenticationServer.verifyResponse(
-					authenticationClientRequest, serverKey,
-					registrationClient.getUsername()));
+			String authenticationServerResponse = authenticationServer
+					.verifyResponse(authenticationClientRequest, serverKey
+							.getPrivate().getEncoded(), serverKey.getPublic()
+							.getEncoded(), USER_NAME, MOBILE_NAME, clientKey
+							.getPublic().getEncoded());
+
+			Assert.assertTrue(registrationClient
+					.verifyRegistrationResponse(authenticationServerResponse));
 		}
 	}
 }

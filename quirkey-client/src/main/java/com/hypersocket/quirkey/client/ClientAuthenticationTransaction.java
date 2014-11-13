@@ -2,8 +2,10 @@ package com.hypersocket.quirkey.client;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
 
 import javax.crypto.KeyAgreement;
 
@@ -23,14 +25,12 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 	byte[] Q_S;
 	byte[] clientExchangeHash;
 	BigInteger secret;
-	KeyPair clientKeyPair;
 	ECCryptoProvider ecProvider;
 	KeyAgreement keyAgreement;
 
-	public ClientAuthenticationTransaction(KeyPair clientKeyPair,
-			String encodedAuthentication, String curve) throws IOException {
+	public ClientAuthenticationTransaction(String encodedAuthentication,
+			String curve) throws IOException {
 
-		this.clientKeyPair = clientKeyPair;
 		this.ecProvider = ECCryptoProviderFactory.createInstance(curve);
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decode(encodedAuthentication));
@@ -74,8 +74,8 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 	}
 
 	public String generateAuthenticationRequest(String mobileId,
-			String mobileName, byte[] serverPublicKey, String username)
-			throws IOException {
+			String mobileName, byte[] serverPublicKey, String username,
+			byte[] clientPrivateKey, byte[] clientPublicKey) throws IOException {
 
 		ByteArrayWriter writer = new ByteArrayWriter();
 
@@ -83,17 +83,16 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
 			writer.writeString(authenticationId);
 			writer.writeString(mobileId);
-			writer.writeString(mobileName);
 			writer.writeBinaryString(Q_S);
-			writer.writeBinaryString(clientKeyPair.getPublic().getEncoded());
 
 			clientExchangeHash = generateExchangeHash(Q_C, Q_S,
-					serverPublicKey, clientKeyPair.getPublic().getEncoded(),
-					username, mobileId, authenticationId, secret, mobileName,
-					url);
+					serverPublicKey, clientPublicKey, username, mobileId,
+					authenticationId, secret, mobileName, url);
 
+			KeyFactory kf = KeyFactory.getInstance("EC");
 			writer.writeBinaryString(ecProvider.sign(
-					clientKeyPair.getPrivate(), clientExchangeHash));
+					kf.generatePrivate(new PKCS8EncodedKeySpec(clientPrivateKey)),
+					clientExchangeHash));
 
 			return Base64.toBase64String(writer.toByteArray());
 		} catch (Exception e) {

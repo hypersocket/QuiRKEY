@@ -5,10 +5,13 @@ import java.math.BigInteger;
 import java.net.URL;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Date;
 import java.util.UUID;
 
 import javax.crypto.KeyAgreement;
@@ -31,9 +34,15 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 	String authenticationId;
 	PublicKey ec;
 	ECCryptoProvider ecProvider;
+	String mobileId;
+	byte[] Q_S;
+	byte[] signature;
+	PublicKey clientPublicKey;
+	String status;
+	Date creationDate;
 
-	public ServerAuthenticationTransaction(URL serverURL, KeyPair serverKey,
-			String curve) throws InvalidAlgorithmParameterException,
+	public ServerAuthenticationTransaction(URL serverURL, String curve)
+			throws InvalidAlgorithmParameterException,
 			NoSuchAlgorithmException, NoSuchProviderException,
 			InvalidKeyException {
 
@@ -45,11 +54,17 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		this.ec = ecdhKeyPair.getPublic();
 		this.Q_C = ecProvider.generateQ(ec);
 		this.authenticationId = UUID.randomUUID().toString();
+		this.creationDate = new Date();
+		this.status = "in progress";
 
 	}
 
 	public String getAuthenticationId() {
 		return authenticationId;
+	}
+
+	public String getStatus() {
+		return status;
 	}
 
 	public String generateAuthenticationInfo() throws IOException {
@@ -66,20 +81,47 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		}
 	}
 
-	public boolean verifyResponse(String encodedResponse, KeyPair serverKey, String username) throws IOException {
-
+	public static String getAuthenticationId(String encodedResponse)
+			throws IOException {
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decodeBase64(encodedResponse));
-
 		try {
+			return reader.readString();
 
+		} catch (IOException e) {
+			throw new IOException(e);
+		} finally {
+			reader.close();
+		}
+	}
+
+	private void readData(String encodedResponse) throws IOException {
+		ByteArrayReader reader = new ByteArrayReader(
+				Base64.decodeBase64(encodedResponse));
+		try {
 			authenticationId = reader.readString();
-			String mobileId = reader.readString();
-			String mobileName = reader.readString();
-			byte[] Q_S = reader.readBinaryString();
-			byte[] clientKey = reader.readBinaryString();
+			mobileId = reader.readString();
+			Q_S = reader.readBinaryString();
+			signature = reader.readBinaryString();
+		} catch (IOException e) {
+			throw new IOException(e);
+		} finally {
+			reader.close();
+		}
 
-			byte[] signature = reader.readBinaryString();
+	}
+
+	public String getMobileId(String encodedResponse) throws IOException {
+		readData(encodedResponse);
+		return mobileId;
+	}
+
+	public String verifyResponse(String encodedResponse,
+			byte[] serverPrivateKey, byte[] serverPublicKey, String username,
+			String mobileName, byte[] clientKey) throws IOException {
+
+		readData(encodedResponse);
+		try {
 
 			PublicKey clientPublicKey = ecProvider.decodePublicKey(clientKey);
 			keyAgreement.doPhase(ecProvider.decodeKey(Q_S), true);
@@ -94,16 +136,35 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 			// Calculate diffe hellman k value
 			BigInteger secret = new BigInteger(tmp);
 
-			byte[] exchangeHash = generateExchangeHash(Q_C, Q_S, serverKey
-					.getPublic().getEncoded(), clientKey, username, mobileId,
+			byte[] exchangeHash = generateExchangeHash(Q_C, Q_S,
+					serverPublicKey, clientKey, username, mobileId,
 					authenticationId, secret, mobileName,
 					serverURL.toExternalForm());
 
-			return ecProvider.verify(clientPublicKey, signature, exchangeHash);
+			if (!ecProvider.verify(clientPublicKey, signature, exchangeHash)) {
+				this.status = "failed";
+				throw new Exception("Invalid client signature");
+			}
+
+			ByteArrayWriter writer = new ByteArrayWriter();
+
+			ByteArrayWriter signatureResponse = new ByteArrayWriter();
+
+			try {
+
+				KeyFactory kf = KeyFactory.getInstance("EC");
+				writer.writeBinaryString(ecProvider.sign(kf
+						.generatePrivate(new PKCS8EncodedKeySpec(
+								serverPrivateKey)), exchangeHash));
+				this.status = "success";
+				return Base64.encodeBase64String(writer.toByteArray());
+
+			} finally {
+				writer.close();
+				signatureResponse.close();
+			}
 		} catch (Exception e) {
 			throw new IOException(e);
-		} finally {
-			reader.close();
 		}
 	}
 }
