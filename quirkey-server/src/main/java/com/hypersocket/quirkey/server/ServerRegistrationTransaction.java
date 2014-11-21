@@ -84,24 +84,11 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		return creationDate;
 	}
 
-	public static String getRegistrationId(String encodedResponse)
-			throws IOException {
-		ByteArrayReader reader = new ByteArrayReader(
-				Base64.decodeBase64(encodedResponse));
-		try {
-			return reader.readString();
-
-		} catch (Exception e) {
-			throw new IOException(e);
-		} finally {
-			reader.close();
-		}
-	}
-
 	public String generateRegistrationInfo() throws IOException {
 		ByteArrayWriter msg = new ByteArrayWriter();
 
 		try {
+			msg.writeString("1");
 			msg.writeString(registrationId);
 			msg.writeString(username);
 			msg.writeString(serverURL.toExternalForm());
@@ -146,7 +133,8 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		return clientKey;
 	}
 
-	public String verifyResponse(String encodedResponse) throws IOException {
+	public String verifyResponse(String encodedResponse, String errorCode)
+			throws IOException {
 
 		readData(encodedResponse);
 		try {
@@ -163,9 +151,9 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 			// Calculate diffe hellman k value
 			BigInteger secret = new BigInteger(tmp);
 
-			byte[] exchangeHash = generateExchangeHash(Q_C, Q_S, serverKey
-					.getPublic().getEncoded(), clientKey, username, mobileId,
-					registrationId, secret, mobileName,
+			byte[] exchangeHash = generateExchangeHash(Q_C, Q_S,
+					serverKey.getPublic().getEncoded(), clientKey, username,
+					mobileId, registrationId, secret, mobileName,
 					serverURL.toExternalForm());
 
 			if (!ecProvider.verify(clientPublicKey, signature, exchangeHash)) {
@@ -178,15 +166,19 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 			ByteArrayWriter signatureResponse = new ByteArrayWriter();
 
 			try {
+				writer.writeString(errorCode);
 				writer.writeBinaryString(ecProvider.sign(
 						serverKey.getPrivate(), exchangeHash));
-				this.status = "success";
+				if("0".equals(errorCode)){
+					this.status = "success";
+				}
 				return Base64.encodeBase64String(writer.toByteArray());
 
 			} finally {
 				writer.close();
 				signatureResponse.close();
 			}
+
 		} catch (Exception e) {
 			throw new IOException(e);
 		}

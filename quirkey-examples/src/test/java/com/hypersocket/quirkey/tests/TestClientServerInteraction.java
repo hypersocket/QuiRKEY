@@ -46,7 +46,7 @@ public class TestClientServerInteraction {
 
 		String clientRequest = client.generateRegistrationRequest(ID,
 				MOBILE_NAME);
-		String serverResponse = server.verifyResponse(clientRequest);
+		String serverResponse = server.verifyResponse("0", clientRequest);
 		Assert.assertTrue(client.verifyRegistrationResponse(serverResponse));
 	}
 
@@ -70,7 +70,7 @@ public class TestClientServerInteraction {
 		String registrationClientRequest = registrationClient
 				.generateRegistrationRequest(ID, MOBILE_NAME);
 		String registrationServerResponse = registrationServer
-				.verifyResponse(registrationClientRequest);
+				.verifyResponse("0", registrationClientRequest);
 		if (registrationClient
 				.verifyRegistrationResponse(registrationServerResponse)) {
 			ServerAuthenticationTransaction authenticationServer = new ServerAuthenticationTransaction(
@@ -90,7 +90,7 @@ public class TestClientServerInteraction {
 									.getPublic().getEncoded());
 
 			String authenticationServerResponse = authenticationServer
-					.verifyResponse(authenticationClientRequest, serverKey
+					.verifyResponse("0", authenticationClientRequest, serverKey
 							.getPrivate().getEncoded(), serverKey.getPublic()
 							.getEncoded(), USER_NAME, MOBILE_NAME, clientKey
 							.getPublic().getEncoded());

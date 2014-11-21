@@ -75,6 +75,7 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		ByteArrayWriter msg = new ByteArrayWriter();
 
 		try {
+			msg.writeString("2");
 			msg.writeString(authenticationId);
 			msg.writeString(serverURL.toExternalForm());
 			msg.writeBinaryString(Q_C);
@@ -82,20 +83,6 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 			return Base64.encodeBase64String(msg.toByteArray());
 		} finally {
 			msg.close();
-		}
-	}
-
-	public static String getAuthenticationId(String encodedResponse)
-			throws IOException {
-		ByteArrayReader reader = new ByteArrayReader(
-				Base64.decodeBase64(encodedResponse));
-		try {
-			return reader.readString();
-
-		} catch (IOException e) {
-			throw new IOException(e);
-		} finally {
-			reader.close();
 		}
 	}
 
@@ -120,12 +107,20 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		return mobileId;
 	}
 
-	public String verifyResponse(String encodedResponse,
+	public String verifyResponse(String errorCode, String encodedResponse,
 			byte[] serverPrivateKey, byte[] serverPublicKey, String username,
 			String mobileName, byte[] clientKey) throws IOException {
 
 		readData(encodedResponse);
+		ByteArrayWriter writer = new ByteArrayWriter();
 		try {
+			
+			
+			if (!"0".equals(errorCode)) {
+
+				writer.writeString(errorCode);
+				return Base64.encodeBase64String(writer.toByteArray());
+			}
 
 			PublicKey clientPublicKey = ecProvider.decodePublicKey(clientKey);
 			keyAgreement.doPhase(ecProvider.decodeKey(Q_S), true);
@@ -150,13 +145,12 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 				throw new Exception("Invalid client signature");
 			}
 
-			ByteArrayWriter writer = new ByteArrayWriter();
-
 			ByteArrayWriter signatureResponse = new ByteArrayWriter();
 
 			try {
 
 				KeyFactory kf = KeyFactory.getInstance("EC");
+				writer.writeString("0");
 				writer.writeBinaryString(ecProvider.sign(kf
 						.generatePrivate(new PKCS8EncodedKeySpec(
 								serverPrivateKey)), exchangeHash));
@@ -164,11 +158,13 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 				return Base64.encodeBase64String(writer.toByteArray());
 
 			} finally {
-				writer.close();
+				
 				signatureResponse.close();
 			}
 		} catch (Exception e) {
 			throw new IOException(e);
+		}finally{
+			writer.close();
 		}
 	}
 }

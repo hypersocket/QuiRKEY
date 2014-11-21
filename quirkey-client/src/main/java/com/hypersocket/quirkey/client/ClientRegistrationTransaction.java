@@ -28,9 +28,11 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 	KeyPair clientKeyPair;
 	ECCryptoProvider ecProvider;
 	KeyAgreement keyAgreement;
+	String transactionType;
 
 	public ClientRegistrationTransaction(KeyPair clientKeyPair,
-			String encodedRegistration, String curve) throws IOException {
+			String encodedRegistration, String curve)
+			throws QuiRKEYRegistrationException, IOException {
 
 		this.clientKeyPair = clientKeyPair;
 		this.ecProvider = ECCryptoProviderFactory.createInstance(curve);
@@ -38,6 +40,10 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 				Base64.decode(encodedRegistration));
 
 		try {
+			transactionType = reader.readString();
+			if (!"1".equals(transactionType)) {
+				throw new QuiRKEYRegistrationException("Transaction error");
+			}
 			registrationId = reader.readString();
 			username = reader.readString();
 			url = reader.readString();
@@ -61,6 +67,8 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 
 			// Calculate diffe hellman k value
 			secret = new BigInteger(tmp);
+		} catch (QuiRKEYRegistrationException e) {
+			throw e;
 		} catch (Exception e) {
 			throw new IOException(e);
 		} finally {
@@ -83,6 +91,10 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 
 	public byte[] getServerPublicKey() {
 		return serverPublicKey;
+	}
+
+	public String getTransactionType() {
+		return transactionType;
 	}
 
 	public String generateRegistrationRequest(String mobileId, String mobileName)
@@ -114,18 +126,25 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 	}
 
 	public boolean verifyRegistrationResponse(String encodedResponse)
-			throws IOException {
+			throws IOException, QuiRKEYRegistrationException {
 
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decode(encodedResponse));
+		String errorCode = reader.readString();
 
 		try {
+			if (!"0".equals(errorCode)) {
+				throw new QuiRKEYRegistrationException(errorCode);
+			}
 			byte[] signature = reader.readBinaryString();
 
 			PublicKey publicKey = ecProvider.decodePublicKey(serverPublicKey);
 			return ecProvider.verify(publicKey, signature, clientExchangeHash);
+		} catch (QuiRKEYRegistrationException e) {
+			throw e;
 		} catch (Exception e) {
 			throw new IOException(e);
+
 		} finally {
 			reader.close();
 		}

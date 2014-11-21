@@ -27,15 +27,20 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 	BigInteger secret;
 	ECCryptoProvider ecProvider;
 	KeyAgreement keyAgreement;
+	String transactionType;
 
 	public ClientAuthenticationTransaction(String encodedAuthentication,
-			String curve) throws IOException {
+			String curve) throws QuiRKEYAuthenticationException, IOException {
 
 		this.ecProvider = ECCryptoProviderFactory.createInstance(curve);
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decode(encodedAuthentication));
 
 		try {
+			transactionType = reader.readString();
+			if (!"2".equals(transactionType)) {
+				throw new QuiRKEYAuthenticationException("Transaction error");
+			}
 			authenticationId = reader.readString();
 			url = reader.readString();
 			Q_C = reader.readBinaryString();
@@ -57,6 +62,8 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
 			// Calculate diffe hellman k value
 			secret = new BigInteger(tmp);
+		} catch (QuiRKEYAuthenticationException e) {
+			throw e;
 		} catch (Exception e) {
 			throw new IOException(e);
 		} finally {
@@ -71,6 +78,10 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
 	public String getUrl() {
 		return url;
+	}
+
+	public String getTransactionType() {
+		return transactionType;
 	}
 
 	public String generateAuthenticationRequest(String mobileId,
@@ -103,16 +114,24 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 	}
 
 	public boolean verifyAuthenticationResponse(String encodedResponse,
-			byte[] serverPublicKey) throws IOException {
+			byte[] serverPublicKey) throws IOException,
+			QuiRKEYAuthenticationException {
 
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decode(encodedResponse));
+		String errorCode = reader.readString();
 
 		try {
+			if (!"0".equals(errorCode)) {
+				throw new QuiRKEYAuthenticationException(errorCode);
+			}
+
 			byte[] signature = reader.readBinaryString();
 
 			PublicKey publicKey = ecProvider.decodePublicKey(serverPublicKey);
 			return ecProvider.verify(publicKey, signature, clientExchangeHash);
+		} catch (QuiRKEYAuthenticationException e) {
+			throw e;
 		} catch (Exception e) {
 			throw new IOException(e);
 		} finally {
