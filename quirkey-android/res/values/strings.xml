@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">QuiRKEY</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="continue_label">Continue</string>
+    
+    <!-- CameraActivity -->
+	<string name="reg_camera_info">Scan the registration code</string>
+	<string name="auth_camera_info">Scan the authentication code</string>
+
+    <!-- MenuActivity -->
+    <string name="scan">Scan</string>
+    <string name="delete">Delete</string>
+    <string name="register">Register</string>
+    <string name="authenticate">Authenticate</string>
+    <string name="title_activity_splash_screen">SplashScreenActivity</string>
+    <string name="scan_error">Scan Error</string>
+    <string name="device_name">Device Name:</string>
+    <string name="please_wait">Please, wait&#8230;</string>
+    <string name="registration_finish">Device registered successfully</string>
+    <string name="authentication_finish">Authentication successful</string>
+    <string name="registration_error">Registration error</string>
+    <string name="untrusted_certificate_title">Certificate Error</string>
+    <string name="untrusted_certificate">The site\'s security certificate is not trusted!</string>
+    <string name="device_registered">Device registered</string>
+    <string name="device_not_registered">Device not registered</string>
+    <string name="transaction_error">Transaction Error</string>
+    <string name="reg_transaction_error">You are trying to authenticate with an unregistered device.</string>
+    <string name="auth_transaction_error">You are trying to register a device that is already registered.</string>
+    <string name="error">Error</string>
+    <string name="success">Success!</string>
+    <string name="reg_duplicated_device">Duplicated device.</string>
+    <string name="auth_not_existing">The device does not exist in the system.</string>
+    <string name="connection_error_title">Connection Error</string>
+    <string name="connection_error_message">The device is not connected to the network.</string>
+    <string name="action_reset">Reset</string>
+    <string name="register_info">Please, tap \"Register\" and scan the QR Code to register this device.</string>
+    <string name="authenticate_info">Please, tap \"Authenticate\" and scan the QR Code to authenticate in the system with this device.</string>
+    
+</resources>
