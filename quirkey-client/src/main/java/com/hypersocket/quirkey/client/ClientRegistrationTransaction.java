@@ -29,6 +29,8 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 	ECCryptoProvider ecProvider;
 	KeyAgreement keyAgreement;
 	String transactionType;
+	boolean passcode;
+	Long passcodeLength;
 
 	public ClientRegistrationTransaction(KeyPair clientKeyPair,
 			String encodedRegistration, String curve)
@@ -49,6 +51,10 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 			url = reader.readString();
 			Q_C = reader.readBinaryString();
 			serverPublicKey = reader.readBinaryString();
+			passcode = reader.readBoolean();
+			if (passcode) {
+				passcodeLength = reader.readInt();
+			}
 
 			KeyPair ecdhKeyPair = ecProvider.generateKeyPair();
 			this.keyAgreement = ecProvider.createKeyAgreement(ecdhKeyPair);
@@ -95,6 +101,22 @@ public class ClientRegistrationTransaction extends QuiRKEYTransaction {
 
 	public String getTransactionType() {
 		return transactionType;
+	}
+
+	public boolean isPasscode() {
+		return passcode;
+	}
+
+	public void setPasscode(boolean passcode) {
+		this.passcode = passcode;
+	}
+
+	public Long getPasscodeLength() {
+		return passcodeLength;
+	}
+
+	public void setPasscodeLength(Long passcodeLength) {
+		this.passcodeLength = passcodeLength;
 	}
 
 	public String generateRegistrationRequest(String mobileId, String mobileName)
