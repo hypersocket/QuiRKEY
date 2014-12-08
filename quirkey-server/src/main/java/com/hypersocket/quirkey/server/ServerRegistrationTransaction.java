@@ -42,9 +42,11 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 	String mobileName;
 	String status;
 	Date creationDate;
+	boolean passcode;
+	int passcodeLength;
 
 	public ServerRegistrationTransaction(String username, URL serverURL,
-			KeyPair serverKey, String curve)
+			KeyPair serverKey, String curve, boolean passcode, int passcodeLength)
 			throws InvalidAlgorithmParameterException,
 			NoSuchAlgorithmException, NoSuchProviderException,
 			InvalidKeyException {
@@ -61,6 +63,8 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		this.registrationId = UUID.randomUUID().toString();
 		this.creationDate = new Date();
 		this.status = "in progress";
+		this.passcode = passcode;
+		this.passcodeLength = passcodeLength;
 
 	}
 
@@ -94,6 +98,10 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 			msg.writeString(serverURL.toExternalForm());
 			msg.writeBinaryString(Q_C);
 			msg.writeBinaryString(serverKey.getPublic().getEncoded());
+			msg.writeBoolean(passcode);
+			if(passcode){
+				msg.writeInt(passcodeLength);
+			}
 
 			return Base64.encodeBase64String(msg.toByteArray());
 		} finally {
