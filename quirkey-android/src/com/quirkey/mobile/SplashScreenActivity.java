@@ -8,7 +8,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.hypersocket.hypersocketauthenticator.R;
+import com.quirkey.mobile.R;
 
 /**
  * SplashScreenActivity: Shows an image for a few seconds

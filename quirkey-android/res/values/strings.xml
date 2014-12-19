@@ -6,6 +6,8 @@
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="continue_label">Continue</string>
+    <string name="password">Password</string>
+    <string name="done">Done</string>
     
     <!-- CameraActivity -->
 	<string name="reg_camera_info">Scan the registration code</string>
@@ -39,5 +41,8 @@
     <string name="action_reset">Reset</string>
     <string name="register_info">Please, tap \"Register\" and scan the QR Code to register this device.</string>
     <string name="authenticate_info">Please, tap \"Authenticate\" and scan the QR Code to authenticate in the system with this device.</string>
+    
+    <string name="setPasscode">Please, set a passcode:</string>
+    <string name="repeatPasscode">Repeat passcode:</string>
     
 </resources>

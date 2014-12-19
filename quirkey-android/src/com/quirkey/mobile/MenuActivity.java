@@ -34,6 +34,7 @@ import org.apache.http.util.EntityUtils;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.Context;
@@ -45,7 +46,6 @@ import android.net.ConnectivityManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Menu;
@@ -58,14 +58,14 @@ import android.widget.TextView;
 
 import com.hypersocket.crypto.ECCryptoProvider;
 import com.hypersocket.crypto.ECCryptoProviderFactory;
-import com.hypersocket.hypersocketauthenticator.R;
 import com.hypersocket.quirkey.client.ClientAuthenticationTransaction;
 import com.hypersocket.quirkey.client.ClientRegistrationTransaction;
 import com.hypersocket.quirkey.client.QuiRKEYAuthenticationException;
 import com.hypersocket.quirkey.client.QuiRKEYRegistrationException;
+import com.quirkey.mobile.R;
 import com.quirkey.mobile.DBManager.RegistrationTable;
 
-public class MenuActivity extends ActionBarActivity {
+public class MenuActivity extends Activity {
 
 	private Button buttonScan;
 
@@ -163,16 +163,51 @@ public class MenuActivity extends ActionBarActivity {
 
 						authenticationClient = new ClientAuthenticationTransaction(
 								qrCodeInfo, "secp256r1");
-
+						new RegisterDeviceSubAsyncTask().execute(params);
 					} else {
 
 						clientKey = provider.generateKeyPair();
 						registrationClient = new ClientRegistrationTransaction(
 								clientKey, qrCodeInfo, "secp256r1");
 
+						if (registrationClient.isPasscode()) {
+							Dialog dialogSetPasscode = new Dialog(MenuActivity.this);
+							dialogSetPasscode.setContentView(R.layout.set_passcode_layout);
+//							dialogSearchLocation.setTitle(this.getResources().getString(
+//									R.string.selectCity));
+//
+//							spinnerProvinces = (Spinner) dialogSearchLocation
+//									.findViewById(R.id.spinnerProvince);
+//							spinnerCities = (Spinner) dialogSearchLocation
+//									.findViewById(R.id.spinnerCity);
+//							buttonSearch = (Button) dialogSearchLocation
+//									.findViewById(R.id.buttonSearch);
+//
+//							buttonSearch.setOnClickListener(new OnClickListener() {
+//
+//								@Override
+//								public void onClick(View v) {
+//									// Search pressed
+//									Log.i(this.getClass().getName(), "buttonSearch.onClick()");
+//									Intent i = new Intent(MenuActivity.this,
+//											TimetableByLocationActivity.class);
+//									i.putExtra("cityName", spinnerCities.getSelectedItem()
+//											.toString());
+//									Log.i(this.getClass().getName(),
+//											"buttonSearch.onClick() - cityName: "
+//													+ spinnerCities.getSelectedItem().toString());
+//									dialogSearchLocation.dismiss();
+//
+//									// Calling a new activity
+//									MenuActivity.this.startActivity(i);
+//
+//								}
+						} else {
+							new RegisterDeviceSubAsyncTask().execute(params);
+						}
+
 					}
 
-					new RegisterDeviceSubAsyncTask().execute(params);
 				} catch (QuiRKEYRegistrationException e) {
 					alertbox.setTitle(R.string.transaction_error);
 					alertbox.setMessage(R.string.reg_transaction_error);
@@ -324,37 +359,15 @@ public class MenuActivity extends ActionBarActivity {
 					return;
 				} else if (!registered
 						&& registrationClient
-								.verifyRegistrationResponse(content)) {
-					ContentValues registrationData = new ContentValues();
-					registrationData.put(RegistrationTable.NAME,
-							registrationClient.getUsername());
-					registrationData.put(RegistrationTable.SERVER_KEY,
-							registrationClient.getServerPublicKey());
+								.verifyRegistrationResponse(content)
+						&& registrationClient.isPasscode()) {
 
-					registrationData.put(RegistrationTable.CLIENT_PRIVATE_KEY,
-							clientKey.getPrivate().getEncoded());
-
-					registrationData.put(RegistrationTable.CLIENT_PUBLIC_KEY,
-							clientKey.getPublic().getEncoded());
-
-					db.delete(RegistrationTable.TABLE, null, null);
-					db.insert(RegistrationTable.TABLE, null, registrationData);
-
-					alertbox.setTitle(R.string.success);
-					alertbox.setMessage(MenuActivity.this.getResources()
-							.getString(R.string.registration_finish));
-					alertbox.show();
-
-					String[] fields = new String[] { RegistrationTable.NAME,
-							RegistrationTable.SERVER_KEY,
-							RegistrationTable.CLIENT_PRIVATE_KEY,
-							RegistrationTable.CLIENT_PUBLIC_KEY };
-					cursor = db.query(RegistrationTable.TABLE, fields, null,
-							null, null, null, null);
-					if (cursor.moveToFirst()) {
-						changeStatus(true);
-					}
-
+					return;
+				} else if (!registered
+						&& registrationClient
+								.verifyRegistrationResponse(content)
+						&& !registrationClient.isPasscode()) {
+					registerData();
 					return;
 				} else if (registered
 						&& authenticationClient
@@ -389,6 +402,38 @@ public class MenuActivity extends ActionBarActivity {
 				e.printStackTrace();
 			}
 
+		}
+	}
+
+	private void registerData() {
+		ContentValues registrationData = new ContentValues();
+		registrationData.put(RegistrationTable.NAME,
+				registrationClient.getUsername());
+		registrationData.put(RegistrationTable.SERVER_KEY,
+				registrationClient.getServerPublicKey());
+
+		registrationData.put(RegistrationTable.CLIENT_PRIVATE_KEY, clientKey
+				.getPrivate().getEncoded());
+
+		registrationData.put(RegistrationTable.CLIENT_PUBLIC_KEY, clientKey
+				.getPublic().getEncoded());
+
+		db.delete(RegistrationTable.TABLE, null, null);
+		db.insert(RegistrationTable.TABLE, null, registrationData);
+
+		alertbox.setTitle(R.string.success);
+		alertbox.setMessage(MenuActivity.this.getResources().getString(
+				R.string.registration_finish));
+		alertbox.show();
+
+		String[] fields = new String[] { RegistrationTable.NAME,
+				RegistrationTable.SERVER_KEY,
+				RegistrationTable.CLIENT_PRIVATE_KEY,
+				RegistrationTable.CLIENT_PUBLIC_KEY };
+		cursor = db.query(RegistrationTable.TABLE, fields, null, null, null,
+				null, null);
+		if (cursor.moveToFirst()) {
+			changeStatus(true);
 		}
 	}
 
@@ -482,7 +527,7 @@ public class MenuActivity extends ActionBarActivity {
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		int id = item.getItemId();
-		if (id == R.id.action_reset) {
+		if (id == R.id.button_scan) {
 			db.delete(RegistrationTable.TABLE, null, null);
 			changeStatus(false);
 			Log.i(this.getClass().getName(),

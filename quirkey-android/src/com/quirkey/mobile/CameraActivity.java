@@ -19,7 +19,7 @@ import android.view.KeyEvent;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
-import com.hypersocket.hypersocketauthenticator.R;
+import com.quirkey.mobile.R;
 
 /**
  * CameraActivity: Waits for a QR code to scan it
