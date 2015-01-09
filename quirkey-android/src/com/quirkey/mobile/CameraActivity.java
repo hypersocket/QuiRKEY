@@ -19,12 +19,11 @@ import android.view.KeyEvent;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
-import com.quirkey.mobile.R;
-
 /**
  * CameraActivity: Waits for a QR code to scan it
  */
 
+@SuppressWarnings("deprecation")
 public class CameraActivity extends Activity {
 	private Camera mCamera;
 	private CameraPreview mPreview;

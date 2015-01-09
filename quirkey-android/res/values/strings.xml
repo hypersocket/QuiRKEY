@@ -8,6 +8,7 @@
     <string name="continue_label">Continue</string>
     <string name="password">Password</string>
     <string name="done">Done</string>
+    <string name="confirm">Confirm</string>
     
     <!-- CameraActivity -->
 	<string name="reg_camera_info">Scan the registration code</string>
@@ -39,10 +40,18 @@
     <string name="connection_error_title">Connection Error</string>
     <string name="connection_error_message">The device is not connected to the network.</string>
     <string name="action_reset">Reset</string>
-    <string name="register_info">Please, tap \"Register\" and scan the QR Code to register this device.</string>
-    <string name="authenticate_info">Please, tap \"Authenticate\" and scan the QR Code to authenticate in the system with this device.</string>
+    <string name="register_info">Please, tap the screen and scan the QR Code to register this device.</string>
+    <string name="authenticate_info">Please, tap the screen and scan the QR Code to authenticate in the system with this device.</string>
     
-    <string name="setPasscode">Please, set a passcode:</string>
-    <string name="repeatPasscode">Repeat passcode:</string>
+    <string name="set_passcode">Please, set a passcode:</string>
+    <string name="repeat_passcode">Repeat passcode:</string>
+    <string name="enter_passcode">Enter passcode:</string>
+    <string name="reset_confirm_title">This will reset your device\'s QuiRKEY settings. Continue?</string>
+    
+    
+    <string name="passcode_empty_error">Passcode cannot be empty.</string>
+    <string name="passcode_length_error">Passcode must be %1$d digit length.</string>
+    <string name="passcode_repeat_error">Passcodes must match.</string>
+    <string name="passcode_error">Incorrect Passcode.</string>
     
 </resources>

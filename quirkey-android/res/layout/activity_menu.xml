@@ -8,7 +8,6 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    android:showDividers="none"
     tools:context=".MenuActivity" >
 
     <LinearLayout
@@ -22,8 +21,9 @@
             android:id="@+id/image_registered"
             android:layout_width="wrap_content"
             android:layout_height="fill_parent"
-            android:layout_gravity="right"
+            android:layout_gravity="end"
             android:clickable="true"
+            android:contentDescription="@string/register"
             android:src="@drawable/red_cross" />
 
         <TextView
@@ -36,6 +36,11 @@
             android:textColor="@color/color_white" />
     </LinearLayout>
 
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.3" />
+
     <TextView
         android:id="@+id/textview_info"
         android:layout_width="match_parent"
@@ -44,12 +49,5 @@
         android:text="@string/register_info"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:textColor="@color/color_white" />
-
-    <Button
-        android:id="@+id/button_scan"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_weight="0.4"
-        android:text="@string/register" />
 
 </LinearLayout>

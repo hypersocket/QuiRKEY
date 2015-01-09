@@ -16,7 +16,8 @@ public class Constants {
 
 	public enum RegistrationTableIndexes {
 
-		NAME(0), SERVER_KEY(1), CLIENT_PRIVATE_KEY(2), CLIENT_PUBLIC_KEY(3);
+		NAME(0), SERVER_KEY(1), CLIENT_PRIVATE_KEY(2), CLIENT_PUBLIC_KEY(3), PASSCODE(
+				4);
 
 		private int registrationTableIndex;
 

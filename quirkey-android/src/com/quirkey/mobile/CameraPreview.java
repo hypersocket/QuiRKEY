@@ -11,6 +11,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 /** A basic Camera preview class */
+@SuppressWarnings("deprecation")
 public class CameraPreview extends SurfaceView implements
 		SurfaceHolder.Callback {
 	private SurfaceHolder mHolder;
@@ -18,7 +19,6 @@ public class CameraPreview extends SurfaceView implements
 	private PreviewCallback previewCallback;
 	private AutoFocusCallback autoFocusCallback;
 
-	@SuppressWarnings("deprecation")
 	public CameraPreview(Context context, Camera camera,
 			PreviewCallback previewCb, AutoFocusCallback autoFocusCb) {
 		super(context);

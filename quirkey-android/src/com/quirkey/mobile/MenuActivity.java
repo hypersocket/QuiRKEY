@@ -1,14 +1,22 @@
 package com.quirkey.mobile;
 
 import java.io.IOException;
+import java.math.BigInteger;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.SSLPeerUnverifiedException;
 
 import org.apache.http.HttpEntity;
@@ -32,6 +40,7 @@ import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -47,12 +56,17 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.telephony.TelephonyManager;
+import android.text.InputFilter;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.View.OnTouchListener;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -62,12 +76,9 @@ import com.hypersocket.quirkey.client.ClientAuthenticationTransaction;
 import com.hypersocket.quirkey.client.ClientRegistrationTransaction;
 import com.hypersocket.quirkey.client.QuiRKEYAuthenticationException;
 import com.hypersocket.quirkey.client.QuiRKEYRegistrationException;
-import com.quirkey.mobile.R;
 import com.quirkey.mobile.DBManager.RegistrationTable;
 
 public class MenuActivity extends Activity {
-
-	private Button buttonScan;
 
 	private KeyPair clientKey;
 	private ECCryptoProvider provider = ECCryptoProviderFactory
@@ -81,6 +92,10 @@ public class MenuActivity extends Activity {
 	private SQLiteDatabase db;
 	private Cursor cursor;
 	private boolean registered = false;
+	private Dialog dialogSetPasscode;
+	private Dialog dialogEnterPasscode;
+	private Context context = (Context) this;
+	private ImageView icon;
 
 	static {
 		Security.insertProviderAt(
@@ -107,30 +122,34 @@ public class MenuActivity extends Activity {
 								"alertbox.onClick() - OK");
 					}
 				});
-		buttonScan = (Button) findViewById(R.id.button_scan);
-		buttonScan.setOnClickListener(new OnClickListener() {
+		icon = (ImageView) findViewById(R.id.image_registered);
+
+		icon.setOnTouchListener(new OnTouchListener() {
+			@SuppressLint("ClickableViewAccessibility")
 			@Override
-			public void onClick(View v) {
-				Log.i(this.getClass().getName(), "buttonRegister.onClick()");
-				Intent i = new Intent(MenuActivity.this, CameraActivity.class);
-				i.putExtra("registered", registered);
-				Log.i(this.getClass().getName(),
-						"buttonScan.onClick() - Calling CameraActivity.java");
-				MenuActivity.this.startActivityForResult(i,
-						Constants.CAMERA_REQUEST_CODE);
+			public boolean onTouch(View v, MotionEvent event) {
+				return MenuActivity.this.onTouchEvent(event);
 			}
 		});
-
 		String[] fields = new String[] { RegistrationTable.NAME,
 				RegistrationTable.SERVER_KEY,
 				RegistrationTable.CLIENT_PRIVATE_KEY,
-				RegistrationTable.CLIENT_PUBLIC_KEY };
+				RegistrationTable.CLIENT_PUBLIC_KEY, RegistrationTable.PASSCODE };
 		cursor = db.query(RegistrationTable.TABLE, fields, null, null, null,
 				null, null);
 		if (cursor.moveToFirst()) {
 			changeStatus(true);
 
 		}
+	}
+
+	private void scanPressed() {
+		Intent i = new Intent(MenuActivity.this, CameraActivity.class);
+		i.putExtra("registered", registered);
+		Log.i(this.getClass().getName(),
+				"buttonScan.onClick() - Calling CameraActivity.java");
+		MenuActivity.this.startActivityForResult(i,
+				Constants.CAMERA_REQUEST_CODE);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -171,37 +190,96 @@ public class MenuActivity extends Activity {
 								clientKey, qrCodeInfo, "secp256r1");
 
 						if (registrationClient.isPasscode()) {
-							Dialog dialogSetPasscode = new Dialog(MenuActivity.this);
-							dialogSetPasscode.setContentView(R.layout.set_passcode_layout);
-//							dialogSearchLocation.setTitle(this.getResources().getString(
-//									R.string.selectCity));
-//
-//							spinnerProvinces = (Spinner) dialogSearchLocation
-//									.findViewById(R.id.spinnerProvince);
-//							spinnerCities = (Spinner) dialogSearchLocation
-//									.findViewById(R.id.spinnerCity);
-//							buttonSearch = (Button) dialogSearchLocation
-//									.findViewById(R.id.buttonSearch);
-//
-//							buttonSearch.setOnClickListener(new OnClickListener() {
-//
-//								@Override
-//								public void onClick(View v) {
-//									// Search pressed
-//									Log.i(this.getClass().getName(), "buttonSearch.onClick()");
-//									Intent i = new Intent(MenuActivity.this,
-//											TimetableByLocationActivity.class);
-//									i.putExtra("cityName", spinnerCities.getSelectedItem()
-//											.toString());
-//									Log.i(this.getClass().getName(),
-//											"buttonSearch.onClick() - cityName: "
-//													+ spinnerCities.getSelectedItem().toString());
-//									dialogSearchLocation.dismiss();
-//
-//									// Calling a new activity
-//									MenuActivity.this.startActivity(i);
-//
-//								}
+							InputFilter[] maxLengthFilter = new InputFilter[1];
+							maxLengthFilter[0] = new InputFilter.LengthFilter(
+									registrationClient.getPasscodeLength()
+											.intValue());
+
+							dialogSetPasscode = new Dialog(MenuActivity.this);
+							dialogSetPasscode
+									.setContentView(R.layout.set_passcode_layout);
+							dialogSetPasscode.setTitle(this.getResources()
+									.getString(R.string.set_passcode));
+
+							final EditText editTextSetPasscode = (EditText) dialogSetPasscode
+									.findViewById(R.id.editText_setPasscode);
+							final EditText editTextRepeatPasscode = (EditText) dialogSetPasscode
+									.findViewById(R.id.editText_repeatPasscode);
+
+							editTextSetPasscode.setFilters(maxLengthFilter);
+							editTextRepeatPasscode.setFilters(maxLengthFilter);
+
+							Button buttonDone = (Button) dialogSetPasscode
+									.findViewById(R.id.button_done);
+
+							buttonDone
+									.setOnClickListener(new OnClickListener() {
+
+										@Override
+										public void onClick(View v) {
+											// Done pressed
+											Log.i(this.getClass().getName(),
+													"buttonDone.onClick()");
+											if ("".equals(editTextSetPasscode
+													.getText().toString())
+													|| "".equals(editTextRepeatPasscode
+															.getText()
+															.toString())
+													|| editTextSetPasscode
+															.getText()
+															.toString() == null
+													|| editTextRepeatPasscode
+															.getText()
+															.toString() == null) {
+												alertbox.setTitle(R.string.error);
+												alertbox.setMessage(R.string.passcode_empty_error);
+												alertbox.show();
+											} else if (editTextSetPasscode
+													.getText().toString()
+													.length() != registrationClient
+													.getPasscodeLength()
+													.intValue()
+													|| editTextRepeatPasscode
+															.getText()
+															.toString()
+															.length() != registrationClient
+															.getPasscodeLength()
+															.intValue()) {
+												alertbox.setTitle(R.string.error);
+
+												alertbox.setMessage(context
+														.getString(
+																R.string.passcode_length_error,
+																registrationClient
+																		.getPasscodeLength()
+																		.intValue()));
+												alertbox.show();
+											} else if (!editTextSetPasscode
+													.getText()
+													.toString()
+													.equals(editTextRepeatPasscode
+															.getText()
+															.toString())) {
+												alertbox.setTitle(R.string.error);
+												alertbox.setMessage(R.string.passcode_repeat_error);
+												alertbox.show();
+											} else {
+												InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+												imm.hideSoftInputFromWindow(
+														editTextSetPasscode
+																.getWindowToken(),
+														0);
+												dialogSetPasscode.dismiss();
+												params.put("passcode",
+														editTextSetPasscode
+																.getText()
+																.toString());
+												new RegisterDeviceSubAsyncTask()
+														.execute(params);
+											}
+										}
+									});
+							dialogSetPasscode.show();
 						} else {
 							new RegisterDeviceSubAsyncTask().execute(params);
 						}
@@ -359,14 +437,7 @@ public class MenuActivity extends Activity {
 					return;
 				} else if (!registered
 						&& registrationClient
-								.verifyRegistrationResponse(content)
-						&& registrationClient.isPasscode()) {
-
-					return;
-				} else if (!registered
-						&& registrationClient
-								.verifyRegistrationResponse(content)
-						&& !registrationClient.isPasscode()) {
+								.verifyRegistrationResponse(content)) {
 					registerData();
 					return;
 				} else if (registered
@@ -398,7 +469,6 @@ public class MenuActivity extends Activity {
 				alertbox.show();
 
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
@@ -417,6 +487,15 @@ public class MenuActivity extends Activity {
 
 		registrationData.put(RegistrationTable.CLIENT_PUBLIC_KEY, clientKey
 				.getPublic().getEncoded());
+		if (registrationClient.isPasscode()) {
+			EditText editTextSetPasscode = (EditText) dialogSetPasscode
+					.findViewById(R.id.editText_setPasscode);
+			TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+			registrationData.put(
+					RegistrationTable.PASSCODE,
+					toAES(editTextSetPasscode.getText().toString(),
+							telephonyManager.getDeviceId()));
+		}
 
 		db.delete(RegistrationTable.TABLE, null, null);
 		db.insert(RegistrationTable.TABLE, null, registrationData);
@@ -429,7 +508,7 @@ public class MenuActivity extends Activity {
 		String[] fields = new String[] { RegistrationTable.NAME,
 				RegistrationTable.SERVER_KEY,
 				RegistrationTable.CLIENT_PRIVATE_KEY,
-				RegistrationTable.CLIENT_PUBLIC_KEY };
+				RegistrationTable.CLIENT_PUBLIC_KEY, RegistrationTable.PASSCODE };
 		cursor = db.query(RegistrationTable.TABLE, fields, null, null, null,
 				null, null);
 		if (cursor.moveToFirst()) {
@@ -504,7 +583,6 @@ public class MenuActivity extends Activity {
 					R.string.authenticate_info));
 			imageView_registered.setImageResource(R.drawable.green_check);
 			registered = true;
-			buttonScan.setText(R.string.authenticate);
 		} else {
 			textview_registered.setText(getResources().getString(
 					R.string.device_not_registered));
@@ -512,8 +590,97 @@ public class MenuActivity extends Activity {
 					R.string.register_info));
 			imageView_registered.setImageResource(R.drawable.red_cross);
 			registered = false;
-			buttonScan.setText(R.string.register);
 		}
+	}
+
+	@SuppressLint("TrulyRandom")
+	public static String toAES(final String secret, String keyString) {
+		keyString = "0123456789ABCDEF0123456789ABCDEF";
+		final SecretKeySpec skeySpec = new SecretKeySpec(new BigInteger(
+				keyString, 16).toByteArray(), "AES");
+		try {
+			final Cipher cipher = Cipher.getInstance("AES");
+			cipher.init(Cipher.ENCRYPT_MODE, skeySpec);
+			final byte[] encrypted = cipher.doFinal(secret.getBytes());
+			return new BigInteger(encrypted).toString(16);
+		} catch (final InvalidKeyException e) {
+			throw new UnsupportedOperationException(e);
+		} catch (final IllegalBlockSizeException e) {
+			throw new UnsupportedOperationException(e);
+		} catch (final BadPaddingException e) {
+			throw new UnsupportedOperationException(e);
+		} catch (final NoSuchAlgorithmException e) {
+			throw new UnsupportedOperationException(e);
+		} catch (final NoSuchPaddingException e) {
+			throw new UnsupportedOperationException(e);
+		}
+	}
+
+	@Override
+	public boolean onTouchEvent(MotionEvent event) {
+		int action = event.getAction() & MotionEvent.ACTION_MASK;
+		switch (action) {
+		case MotionEvent.ACTION_UP: {
+			Log.i(this.getClass().getName(), "buttonScan.onClick()");
+			if (registered
+					&& cursor
+							.getString(Constants.RegistrationTableIndexes.PASSCODE
+									.getCode()) != null) {
+				dialogEnterPasscode = new Dialog(MenuActivity.this);
+				dialogEnterPasscode
+						.setContentView(R.layout.enter_passcode_layout);
+				dialogEnterPasscode.setTitle(MenuActivity.this.getResources()
+						.getString(R.string.enter_passcode));
+				InputFilter[] maxLengthFilter = new InputFilter[1];
+				maxLengthFilter[0] = new InputFilter.LengthFilter(8);
+				final EditText editTextEnterPasscode = (EditText) dialogEnterPasscode
+						.findViewById(R.id.editText_enterPasscode);
+				editTextEnterPasscode.setFilters(maxLengthFilter);
+				Button buttonDone = (Button) dialogEnterPasscode
+						.findViewById(R.id.button_done);
+
+				buttonDone.setOnClickListener(new OnClickListener() {
+
+					@Override
+					public void onClick(View v) {
+						// Done pressed
+						Log.i(this.getClass().getName(), "buttonDone.onClick()");
+						TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+						if ("".equals(editTextEnterPasscode.getText()
+								.toString())
+
+								|| editTextEnterPasscode.getText().toString() == null
+								|| !toAES(
+										editTextEnterPasscode.getText()
+												.toString(),
+										telephonyManager.getDeviceId())
+										.equals(cursor
+												.getString(Constants.RegistrationTableIndexes.PASSCODE
+														.getCode()))) {
+							alertbox.setTitle(R.string.error);
+							alertbox.setMessage(R.string.passcode_error);
+							alertbox.show();
+							editTextEnterPasscode.setText("");
+
+						} else {
+							InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+							imm.hideSoftInputFromWindow(
+									editTextEnterPasscode.getWindowToken(), 0);
+							dialogEnterPasscode.dismiss();
+							scanPressed();
+						}
+					}
+				});
+				dialogEnterPasscode.show();
+			} else {
+				scanPressed();
+			}
+
+			break;
+		}
+		}
+		return true;
+
 	}
 
 	@Override
@@ -527,12 +694,31 @@ public class MenuActivity extends Activity {
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		int id = item.getItemId();
-		if (id == R.id.button_scan) {
-			db.delete(RegistrationTable.TABLE, null, null);
-			changeStatus(false);
-			Log.i(this.getClass().getName(),
-					"buttonDelete.onClick() - device set not registered");
-			return true;
+		if (id == R.id.action_reset) {
+			AlertDialog.Builder confirmDialogReset = new AlertDialog.Builder(
+					this);
+			confirmDialogReset.setTitle(getResources().getString(
+					R.string.confirm));
+			confirmDialogReset.setMessage(getResources().getString(
+					R.string.reset_confirm_title));
+			confirmDialogReset.setCancelable(false);
+			confirmDialogReset.setPositiveButton(R.string.ok,
+					new DialogInterface.OnClickListener() {
+						public void onClick(DialogInterface dialog, int which) {
+							db.delete(RegistrationTable.TABLE, null, null);
+							changeStatus(false);
+							Log.i(this.getClass().getName(),
+									"buttonDelete.onClick() - device set not registered");
+
+						}
+					});
+			confirmDialogReset.setNegativeButton(R.string.cancel,
+					new DialogInterface.OnClickListener() {
+						public void onClick(DialogInterface dialog, int which) {
+							dialog.cancel();
+						}
+					});
+			confirmDialogReset.show();
 		}
 		return super.onOptionsItemSelected(item);
 	}

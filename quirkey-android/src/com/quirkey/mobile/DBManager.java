@@ -14,7 +14,7 @@ public class DBManager extends SQLiteOpenHelper {
 		public static final String SERVER_KEY = "SERVER_KEY";
 		public static final String CLIENT_PRIVATE_KEY = "CLIENT_PRIVATE_KEY";
 		public static final String CLIENT_PUBLIC_KEY = "CLIENT_PUBLIC_KEY";
-
+		public static final String PASSCODE = "PASSCODE";
 	}
 
 	// Creating table Registration data
@@ -26,7 +26,8 @@ public class DBManager extends SQLiteOpenHelper {
 			.append(RegistrationTable.CLIENT_PRIVATE_KEY).append(" ")
 			.append(Constants.BLOB).append(", ")
 			.append(RegistrationTable.CLIENT_PUBLIC_KEY).append(" ")
-			.append(Constants.BLOB).append(")");
+			.append(Constants.BLOB).append(", ").append(RegistrationTable.PASSCODE).append(" ")
+			.append(Constants.TEXT).append(")");
 
 	public DBManager(Context context, String name, CursorFactory factory,
 			int version) {
