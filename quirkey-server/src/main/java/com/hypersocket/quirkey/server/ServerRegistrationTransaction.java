@@ -9,6 +9,7 @@ import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.util.Date;
 import java.util.UUID;
 
@@ -31,19 +32,21 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 	byte[] Q_S;
 	byte[] signature;
 	byte[] clientKey;
+	byte[] exchangeHash;
 	String username;
 	URL serverURL;
 	KeyPair serverKey;
-	String registrationId;
+	int registrationId;
 	PublicKey ec;
 	PublicKey clientPublicKey;
 	ECCryptoProvider ecProvider;
 	String mobileId;
 	String mobileName;
-	String status;
 	Date creationDate;
 	boolean passcode;
 	int passcodeLength;
+	BigInteger secret;
+	boolean complete = false;
 
 	public ServerRegistrationTransaction(String username, URL serverURL,
 			KeyPair serverKey, String curve, boolean passcode, int passcodeLength)
@@ -60,9 +63,8 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		this.keyAgreement = ecProvider.createKeyAgreement(ecdhKeyPair);
 		this.ec = ecdhKeyPair.getPublic();
 		this.Q_C = ecProvider.generateQ(ec);
-		this.registrationId = UUID.randomUUID().toString();
+		this.registrationId = new SecureRandom().nextInt();
 		this.creationDate = new Date();
-		this.status = "in progress";
 		this.passcode = passcode;
 		this.passcodeLength = passcodeLength;
 
@@ -76,12 +78,8 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		return mobileName;
 	}
 
-	public String getRegistrationId() {
+	public int getRegistrationId() {
 		return registrationId;
-	}
-
-	public String getStatus() {
-		return status;
 	}
 
 	public Date getCreationDate() {
@@ -92,18 +90,21 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		ByteArrayWriter msg = new ByteArrayWriter();
 
 		try {
-			msg.writeString("1");
-			msg.writeString(registrationId);
-			msg.writeString(username);
+			msg.write(MSG_REGISTRATION_INFO);
+			msg.writeInt(registrationId);
+//			msg.writeString(username);
 			msg.writeString(serverURL.toExternalForm());
 			msg.writeBinaryString(Q_C);
-			msg.writeBinaryString(serverKey.getPublic().getEncoded());
-			msg.writeBoolean(passcode);
-			if(passcode){
-				msg.writeInt(passcodeLength);
-			}
 
-			return Base64.encodeBase64String(msg.toByteArray());
+//			msg.writeBinaryString(serverKey.getPublic().getEncoded());
+//			msg.writeBoolean(passcode);
+//			if(passcode){
+//				msg.writeInt(passcodeLength);
+//			}
+
+			String encoded = Base64.encodeBase64String(msg.toByteArray());
+			System.out.println("Base64 data is " + encoded.length() + " characters");
+			return encoded;
 		} finally {
 			msg.close();
 		}
@@ -115,13 +116,16 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 				Base64.decodeBase64(encodedResponse));
 
 		try {
-
-			registrationId = reader.readString();
+			int id = reader.read();
+			if(id != MSG_REGISTRATION_PROCESS) {
+				throw new IOException("Unexpected message id " + id);
+			}
+			registrationId = (int)reader.readInt();
 			mobileId = reader.readString();
 			mobileName = reader.readString();
 			Q_S = reader.readBinaryString();
 			clientKey = reader.readBinaryString();
-			signature = reader.readBinaryString();
+//			signature = reader.readBinaryString();
 
 			clientPublicKey = ecProvider.decodePublicKey(clientKey);
 		} catch (Exception e) {
@@ -131,17 +135,11 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		}
 	}
 
-	public String getMobileId(String encodedResponse) throws IOException {
-		readData(encodedResponse);
-		return mobileId;
-	}
-
-	public byte[] getClientPublicKey(String encodedResponse) throws IOException {
-		readData(encodedResponse);
+	public byte[] getClientPublicKey() throws IOException {
 		return clientKey;
 	}
 
-	public String verifyResponse(String encodedResponse, String errorCode)
+	public String processRequestionRequest(String encodedResponse)
 			throws IOException {
 
 		readData(encodedResponse);
@@ -157,29 +155,32 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 			}
 
 			// Calculate diffe hellman k value
-			BigInteger secret = new BigInteger(tmp);
+			secret = new BigInteger(tmp);
 
-			byte[] exchangeHash = generateExchangeHash(Q_C, Q_S,
+			exchangeHash = generateExchangeHash(Q_C, Q_S,
 					serverKey.getPublic().getEncoded(), clientKey, username,
 					mobileId, registrationId, secret, mobileName,
 					serverURL.toExternalForm());
-
-			if (!ecProvider.verify(clientPublicKey, signature, exchangeHash)) {
-				this.status = "failed";
-				throw new Exception("Invalid client signature");
-			}
+//
+//			if (!ecProvider.verify(clientPublicKey, signature, exchangeHash)) {
+//				throw new Exception("Invalid client signature");
+//			}
 
 			ByteArrayWriter writer = new ByteArrayWriter();
 
 			ByteArrayWriter signatureResponse = new ByteArrayWriter();
 
 			try {
-				writer.writeString(errorCode);
+				writer.write(MSG_REGISTRATION_ACCEPT);
+				writer.writeString(username);
+				writer.writeBinaryString(serverKey.getPublic().getEncoded());
+				writer.writeBoolean(passcode);
+				if(passcode){
+					writer.writeInt(passcodeLength);
+				}
 				writer.writeBinaryString(ecProvider.sign(
 						serverKey.getPrivate(), exchangeHash));
-				if("0".equals(errorCode)){
-					this.status = "success";
-				}
+				complete = true;
 				return Base64.encodeBase64String(writer.toByteArray());
 
 			} finally {
@@ -190,5 +191,47 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 		} catch (Exception e) {
 			throw new IOException(e);
 		}
+	}
+	
+	public boolean processRegistrationConfirmation(String encodedResponse) throws IOException {
+		
+		ByteArrayReader reader = new ByteArrayReader(
+				Base64.decodeBase64(encodedResponse));
+
+		try {
+			int id = reader.read();
+			if(id != MSG_REGISTRATION_CONFIRM) {
+				throw new IOException("Unexpected message id " + id);
+			}
+			registrationId = (int)reader.readInt();
+			signature = reader.readBinaryString();
+
+			
+			return ecProvider.verify(clientPublicKey, signature, exchangeHash);
+			
+		} catch (Exception e) {
+			throw new IOException(e);
+		} finally {
+			reader.close();
+		}
+	}
+
+	public String generateErrorMessage(int errorCode, String errorDesc) throws IOException {
+		
+		ByteArrayWriter msg = new ByteArrayWriter();
+
+		try {
+			msg.write(MSG_REGISTRATION_FAILURE);
+			msg.writeInt(errorCode);
+			msg.writeString(errorDesc);
+			
+			return Base64.encodeBase64String(msg.toByteArray());
+		} finally {
+			msg.close();
+		}
+	}
+
+	public boolean isComplete() {
+		return complete;
 	}
 }

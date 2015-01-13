@@ -37,7 +37,8 @@ public class TestClientServerInteraction {
 		KeyPair clientKey = provider.generateKeyPair();
 
 		ServerRegistrationTransaction server = new ServerRegistrationTransaction(
-				USER_NAME, new URL("http://localhost"), serverKey, "secp256r1");
+				USER_NAME, new URL("http://localhost"), serverKey, "secp256r1",
+				false, 0);
 
 		String registrationInfo = server.generateRegistrationInfo();
 
@@ -46,8 +47,19 @@ public class TestClientServerInteraction {
 
 		String clientRequest = client.generateRegistrationRequest(ID,
 				MOBILE_NAME);
-		String serverResponse = server.verifyResponse("0", clientRequest);
-		Assert.assertTrue(client.verifyRegistrationResponse(serverResponse));
+
+		boolean registered = true;
+
+		String serverResponse;
+		if (registered) {
+			serverResponse = server.processRequestionRequest(clientRequest);
+			clientRequest = client.verifyRegistrationResponse(serverResponse);
+			Assert.assertTrue(server
+					.processRegistrationConfirmation(clientRequest));
+		} else {
+			serverResponse = server.generateErrorMessage(100,
+					"Client already registered");
+		}
 	}
 
 	@Test
@@ -60,7 +72,7 @@ public class TestClientServerInteraction {
 		KeyPair clientKey = provider.generateKeyPair();
 
 		ServerRegistrationTransaction registrationServer = new ServerRegistrationTransaction(
-				USER_NAME, new URL("http://localhost"), serverKey, "secp256r1");
+				USER_NAME, new URL("http://localhost"), serverKey, "secp256r1", false, 0);
 
 		String registrationInfo = registrationServer.generateRegistrationInfo();
 
@@ -69,10 +81,14 @@ public class TestClientServerInteraction {
 
 		String registrationClientRequest = registrationClient
 				.generateRegistrationRequest(ID, MOBILE_NAME);
+		
 		String registrationServerResponse = registrationServer
-				.verifyResponse("0", registrationClientRequest);
-		if (registrationClient
-				.verifyRegistrationResponse(registrationServerResponse)) {
+				.processRequestionRequest(registrationClientRequest);
+		
+		registrationClientRequest = registrationClient
+				.verifyRegistrationResponse(registrationServerResponse);
+		
+		if (registrationServer.processRegistrationConfirmation(registrationClientRequest)) {
 			ServerAuthenticationTransaction authenticationServer = new ServerAuthenticationTransaction(
 					new URL("http://localhost"), "secp256r1");
 
@@ -90,13 +106,12 @@ public class TestClientServerInteraction {
 									.getPublic().getEncoded());
 
 			String authenticationServerResponse = authenticationServer
-					.verifyResponse("0", authenticationClientRequest, serverKey
+					.processAuthenticationRequest(authenticationClientRequest, serverKey
 							.getPrivate().getEncoded(), serverKey.getPublic()
 							.getEncoded(), USER_NAME, MOBILE_NAME, clientKey
 							.getPublic().getEncoded());
 
-			Assert.assertTrue(registrationClient
-					.verifyRegistrationResponse(authenticationServerResponse));
+			Assert.assertTrue(authenticationClient.verifyAuthenticationResponse(authenticationServerResponse, registrationClient.getServerPublicKey()));
 		}
 	}
 }

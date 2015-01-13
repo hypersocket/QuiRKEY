@@ -4,9 +4,20 @@ import java.math.BigInteger;
 
 public class QuiRKEYTransaction {
 
+	public static final byte MSG_REGISTRATION_INFO = 1;
+	public static final byte MSG_REGISTRATION_PROCESS = 2;
+	public static final byte MSG_REGISTRATION_FAILURE = 3;
+	public static final byte MSG_REGISTRATION_ACCEPT = 4;
+	public static final byte MSG_REGISTRATION_CONFIRM = 5;
+	
+	public static final byte MSG_AUTHENTICATION_INFO = 10;
+	public static final byte MSG_AUTHENTICATION_PROCESS = 11;
+	public static final byte MSG_AUTHENTICATION_FAILURE = 12;
+	public static final byte MSG_AUTHENTICATION_SUCCESS = 13;
+	
 	public byte[] generateExchangeHash(byte[] Q_C, byte[] Q_S,
 			byte[] serverKey, byte[] clientKey, String username,
-			String mobileId, String registrationId, BigInteger secret,
+			String mobileId, int registrationId, BigInteger secret,
 			String mobileName, String url) throws Exception {
 
 		AbstractDigest hash = new AbstractDigest("SHA-1");
@@ -35,8 +46,7 @@ public class QuiRKEYTransaction {
 		hash.putInt(username.getBytes("UTF-8").length);
 		hash.putBytes(username.getBytes("UTF-8"));
 
-		hash.putInt(registrationId.getBytes("UTF-8").length);
-		hash.putBytes(registrationId.getBytes("UTF-8"));
+		hash.putInt(registrationId);
 
 		hash.putBigInteger(secret);
 

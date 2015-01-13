@@ -10,9 +10,9 @@ import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Date;
-import java.util.UUID;
 
 import javax.crypto.KeyAgreement;
 
@@ -31,7 +31,7 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 	KeyAgreement keyAgreement;
 	byte[] Q_C;
 	URL serverURL;
-	String authenticationId;
+	int authenticationId;
 	PublicKey ec;
 	ECCryptoProvider ecProvider;
 	String mobileId;
@@ -53,13 +53,13 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		this.keyAgreement = ecProvider.createKeyAgreement(ecdhKeyPair);
 		this.ec = ecdhKeyPair.getPublic();
 		this.Q_C = ecProvider.generateQ(ec);
-		this.authenticationId = UUID.randomUUID().toString();
+		this.authenticationId = new SecureRandom().nextInt();
 		this.creationDate = new Date();
 		this.status = "in progress";
 
 	}
 
-	public String getAuthenticationId() {
+	public int getAuthenticationId() {
 		return authenticationId;
 	}
 
@@ -75,8 +75,8 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		ByteArrayWriter msg = new ByteArrayWriter();
 
 		try {
-			msg.writeString("2");
-			msg.writeString(authenticationId);
+			msg.write(MSG_AUTHENTICATION_INFO);
+			msg.writeInt(authenticationId);
 			msg.writeString(serverURL.toExternalForm());
 			msg.writeBinaryString(Q_C);
 
@@ -90,7 +90,11 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decodeBase64(encodedResponse));
 		try {
-			authenticationId = reader.readString();
+			int messageid = reader.read();
+			if(messageid!=MSG_AUTHENTICATION_PROCESS) {
+				throw new IOException("Unexpected message id " + messageid);
+			}
+			authenticationId = (int) reader.readInt();
 			mobileId = reader.readString();
 			Q_S = reader.readBinaryString();
 			signature = reader.readBinaryString();
@@ -102,25 +106,32 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 
 	}
 
-	public String getMobileId(String encodedResponse) throws IOException {
-		readData(encodedResponse);
+	public String getMobileId() throws IOException {
 		return mobileId;
 	}
+	
+	public String generateErrorMessage(int errorCode, String errorDesc) throws IOException {
+		
+		ByteArrayWriter msg = new ByteArrayWriter();
 
-	public String verifyResponse(String errorCode, String encodedResponse,
+		try {
+			msg.write(MSG_AUTHENTICATION_FAILURE);
+			msg.writeInt(errorCode);
+			msg.writeString(errorDesc);
+			
+			return Base64.encodeBase64String(msg.toByteArray());
+		} finally {
+			msg.close();
+		}
+	}
+
+	public String processAuthenticationRequest(String encodedResponse,
 			byte[] serverPrivateKey, byte[] serverPublicKey, String username,
 			String mobileName, byte[] clientKey) throws IOException {
 
 		readData(encodedResponse);
 		ByteArrayWriter writer = new ByteArrayWriter();
 		try {
-			
-			
-			if (!"0".equals(errorCode)) {
-
-				writer.writeString(errorCode);
-				return Base64.encodeBase64String(writer.toByteArray());
-			}
 
 			PublicKey clientPublicKey = ecProvider.decodePublicKey(clientKey);
 			keyAgreement.doPhase(ecProvider.decodeKey(Q_S), true);
@@ -150,7 +161,7 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 			try {
 
 				KeyFactory kf = KeyFactory.getInstance("EC");
-				writer.writeString("0");
+				writer.write(MSG_AUTHENTICATION_SUCCESS);
 				writer.writeBinaryString(ecProvider.sign(kf
 						.generatePrivate(new PKCS8EncodedKeySpec(
 								serverPrivateKey)), exchangeHash));

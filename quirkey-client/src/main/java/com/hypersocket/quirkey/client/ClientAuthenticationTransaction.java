@@ -19,7 +19,7 @@ import com.hypersocket.crypto.QuiRKEYTransaction;
 
 public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
-	String authenticationId;
+	int authenticationId;
 	String url;
 	byte[] Q_C;
 	byte[] Q_S;
@@ -30,18 +30,18 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 	String transactionType;
 
 	public ClientAuthenticationTransaction(String encodedAuthentication,
-			String curve) throws QuiRKEYAuthenticationException, IOException {
+			String curve) throws QuiRKEYException, IOException {
 
 		this.ecProvider = ECCryptoProviderFactory.createInstance(curve);
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decode(encodedAuthentication));
 
 		try {
-			transactionType = reader.readString();
-			if (!"2".equals(transactionType)) {
-				throw new QuiRKEYAuthenticationException("Transaction error");
+			int messageId = reader.read();
+			if (messageId!=MSG_AUTHENTICATION_INFO) {
+				throw new QuiRKEYException(0, "Invalid message id " + messageId);
 			}
-			authenticationId = reader.readString();
+			authenticationId = (int) reader.readInt();
 			url = reader.readString();
 			Q_C = reader.readBinaryString();
 
@@ -62,7 +62,7 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
 			// Calculate diffe hellman k value
 			secret = new BigInteger(tmp);
-		} catch (QuiRKEYAuthenticationException e) {
+		} catch (QuiRKEYException e) {
 			throw e;
 		} catch (Exception e) {
 			throw new IOException(e);
@@ -72,7 +72,7 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
 	}
 
-	public String getAuthenticationId() {
+	public int getAuthenticationId() {
 		return authenticationId;
 	}
 
@@ -91,8 +91,8 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 		ByteArrayWriter writer = new ByteArrayWriter();
 
 		try {
-
-			writer.writeString(authenticationId);
+			writer.write(MSG_AUTHENTICATION_PROCESS);
+			writer.writeInt(authenticationId);
 			writer.writeString(mobileId);
 			writer.writeBinaryString(Q_S);
 
@@ -115,23 +115,23 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
 	public boolean verifyAuthenticationResponse(String encodedResponse,
 			byte[] serverPublicKey) throws IOException,
-			QuiRKEYAuthenticationException {
+			QuiRKEYException {
 
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decode(encodedResponse));
-		String errorCode = reader.readString();
+		
 
 		try {
-			if (!"0".equals(errorCode)) {
-				throw new QuiRKEYAuthenticationException(errorCode);
+			int messageId = reader.read();
+			
+			if (messageId!=MSG_AUTHENTICATION_SUCCESS) {
+				throw new QuiRKEYException((int)reader.readInt(), reader.readString());
 			}
 
 			byte[] signature = reader.readBinaryString();
 
 			PublicKey publicKey = ecProvider.decodePublicKey(serverPublicKey);
 			return ecProvider.verify(publicKey, signature, clientExchangeHash);
-		} catch (QuiRKEYAuthenticationException e) {
-			throw e;
 		} catch (Exception e) {
 			throw new IOException(e);
 		} finally {
