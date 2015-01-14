@@ -74,8 +74,7 @@ import com.hypersocket.crypto.ECCryptoProvider;
 import com.hypersocket.crypto.ECCryptoProviderFactory;
 import com.hypersocket.quirkey.client.ClientAuthenticationTransaction;
 import com.hypersocket.quirkey.client.ClientRegistrationTransaction;
-import com.hypersocket.quirkey.client.QuiRKEYAuthenticationException;
-import com.hypersocket.quirkey.client.QuiRKEYRegistrationException;
+import com.hypersocket.quirkey.client.QuiRKEYException;
 import com.quirkey.mobile.DBManager.RegistrationTable;
 
 public class MenuActivity extends Activity {
@@ -285,17 +284,21 @@ public class MenuActivity extends Activity {
 						}
 
 					}
-
-				} catch (QuiRKEYRegistrationException e) {
+				} catch (QuiRKEYException e) {
 					alertbox.setTitle(R.string.transaction_error);
-					alertbox.setMessage(R.string.reg_transaction_error);
+					alertbox.setMessage(e.getMessage());
 					alertbox.show();
 					return;
-				} catch (QuiRKEYAuthenticationException e) {
-					alertbox.setTitle(R.string.transaction_error);
-					alertbox.setMessage(R.string.auth_transaction_error);
-					alertbox.show();
-					return;
+					// } catch (QuiRKEYRegistrationException e) {
+					// alertbox.setTitle(R.string.transaction_error);
+					// alertbox.setMessage(R.string.reg_transaction_error);
+					// alertbox.show();
+					// return;
+					// } catch (QuiRKEYAuthenticationException e) {
+					// alertbox.setTitle(R.string.transaction_error);
+					// alertbox.setMessage(R.string.auth_transaction_error);
+					// alertbox.show();
+					// return;
 
 				} catch (Exception e) {
 					Log.i(this.getClass().getName(),
@@ -373,6 +376,146 @@ public class MenuActivity extends Activity {
 
 				// Add your data
 				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(
+						1);
+				nameValuePairs.add(new BasicNameValuePair("clientRequest",
+						clientRequest));
+				httpPost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+
+				// Execute HTTP Post Request
+				try {
+					HttpClient httpClient;
+					if (trust) {
+						httpClient = getNewHttpClient();
+						if (registered) {
+							trust = false;
+						}
+					} else {
+						httpClient = new DefaultHttpClient();
+					}
+
+					if (!isNetworkConnected()) {
+						MenuActivity.this.runOnUiThread(new Runnable() {
+							public void run() {
+								alertbox.setTitle(R.string.connection_error_title);
+								alertbox.setMessage(R.string.connection_error_message);
+								alertbox.show();
+
+							}
+						});
+						return null;
+					}
+					HttpResponse response = httpClient.execute(httpPost);
+					HttpEntity entity = response.getEntity();
+					String content = EntityUtils.toString(entity);
+					return content;
+				} catch (SSLPeerUnverifiedException e) {
+					MenuActivity.this.runOnUiThread(new Runnable() {
+						public void run() {
+							showUntrustedCertificate();
+						}
+					});
+					return null;
+				}
+
+			} catch (final Exception e) {
+				Log.i(this.getClass().getName(),
+						"onActivityResult() - IOException while executing the HTTP post request: "
+								+ e.getMessage());
+				MenuActivity.this.runOnUiThread(new Runnable() {
+					public void run() {
+						alertbox.setTitle(R.string.error);
+						alertbox.setMessage(e.getMessage());
+						alertbox.show();
+					}
+				});
+				return null;
+			}
+		}
+
+		@SuppressWarnings("unchecked")
+		@Override
+		protected void onPostExecute(String content) {
+			Log.i(this.getClass().getName(),
+					"RegisterDeviceSubAsyncTask.onPostExecute()");
+
+			try {
+				if (content == null) {
+					dialog.dismiss();
+					return;
+				} else if (!registered) {
+					String registrationResponse = registrationClient
+							.verifyRegistrationResponse(content);
+					Map<String, String> registrationResponseParam = new HashMap<String, String>();
+					registrationResponseParam.put("registrationResponse",
+							registrationResponse);
+					new ConfirmRegistrationSubAsyncTask()
+							.execute(registrationResponseParam);
+					return;
+				} else if (registered
+						&& authenticationClient
+								.verifyAuthenticationResponse(
+										content,
+										cursor.getBlob(Constants.RegistrationTableIndexes.SERVER_KEY
+												.getCode()))) {
+					dialog.dismiss();
+					alertbox.setTitle(R.string.success);
+					alertbox.setMessage(MenuActivity.this.getResources()
+							.getString(R.string.authentication_finish));
+					alertbox.show();
+					return;
+				} else {
+					dialog.dismiss();
+					alertbox.setTitle(R.string.error);
+					alertbox.setMessage(MenuActivity.this.getResources()
+							.getString(R.string.registration_error));
+					alertbox.show();
+					trust = false;
+					return;
+				}
+			} catch (QuiRKEYException e) {
+				dialog.dismiss();
+				alertbox.setTitle(R.string.error);
+				alertbox.setMessage(e.getMessage());
+				alertbox.show();
+				trust = false;
+
+				// } catch (QuiRKEYAuthenticationException e) {
+				// alertbox.setTitle(R.string.error);
+				// alertbox.setMessage(R.string.auth_not_existing);
+				// alertbox.show();
+				//
+				// } catch (QuiRKEYRegistrationException e) {
+				// alertbox.setTitle(R.string.error);
+				// alertbox.setMessage(R.string.reg_duplicated_device);
+				// alertbox.show();
+
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+		}
+	}
+
+	class ConfirmRegistrationSubAsyncTask extends
+			AsyncTask<Map<String, String>, Void, String> {
+
+		protected String doInBackground(Map<String, String>... params) {
+			Log.i(this.getClass().getName(),
+					"ConfirmRegistrationSubAsyncTask.doInBackground()");
+
+			try {
+
+				String clientRequest;
+				HttpPost httpPost;
+
+				clientRequest = params[0].get("registrationResponse");
+
+				httpPost = new HttpPost(registrationClient.getUrl()
+						+ "quirkey/confirmRegistration/"
+						+ registrationClient.getRegistrationId());
+
+				// Add your data
+				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(
 						2);
 				nameValuePairs.add(new BasicNameValuePair("clientRequest",
 						clientRequest));
@@ -430,47 +573,35 @@ public class MenuActivity extends Activity {
 		@Override
 		protected void onPostExecute(String content) {
 			Log.i(this.getClass().getName(),
-					"RegisterDeviceSubAsyncTask.onPostExecute()");
+					"ConfirmRegisterDeviceSubAsyncTask.onPostExecute()");
 			dialog.dismiss();
-			try {
-				if (content == null) {
-					return;
-				} else if (!registered
-						&& registrationClient
-								.verifyRegistrationResponse(content)) {
-					registerData();
-					return;
-				} else if (registered
-						&& authenticationClient
-								.verifyAuthenticationResponse(
-										content,
-										cursor.getBlob(Constants.RegistrationTableIndexes.SERVER_KEY
-												.getCode()))) {
-					alertbox.setTitle(R.string.success);
-					alertbox.setMessage(MenuActivity.this.getResources()
-							.getString(R.string.authentication_finish));
-					alertbox.show();
-					return;
-				} else {
-					alertbox.setTitle(R.string.error);
-					alertbox.setMessage(MenuActivity.this.getResources()
-							.getString(R.string.registration_error));
-					alertbox.show();
-					return;
-				}
-			} catch (QuiRKEYAuthenticationException e) {
+			// try {
+			if ("".equals(content) || content == null
+					|| !"success".equals(content)) {
 				alertbox.setTitle(R.string.error);
-				alertbox.setMessage(R.string.auth_not_existing);
+				alertbox.setMessage(MenuActivity.this.getResources().getString(
+						R.string.registration_error));
 				alertbox.show();
+				return;
 
-			} catch (QuiRKEYRegistrationException e) {
-				alertbox.setTitle(R.string.error);
-				alertbox.setMessage(R.string.reg_duplicated_device);
-				alertbox.show();
-
-			} catch (IOException e) {
-				e.printStackTrace();
+			} else {
+				registerData();
+				return;
 			}
+
+			// } catch (QuiRKEYAuthenticationException e) {
+			// alertbox.setTitle(R.string.error);
+			// alertbox.setMessage(R.string.auth_not_existing);
+			// alertbox.show();
+			//
+			// } catch (QuiRKEYRegistrationException e) {
+			// alertbox.setTitle(R.string.error);
+			// alertbox.setMessage(R.string.reg_duplicated_device);
+			// alertbox.show();
+
+			// } catch (IOException e) {
+			// e.printStackTrace();
+			// }
 
 		}
 	}
