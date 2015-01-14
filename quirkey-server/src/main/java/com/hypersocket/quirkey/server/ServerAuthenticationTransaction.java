@@ -42,6 +42,7 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 	byte[] signature;
 	PublicKey clientPublicKey;
 	Date creationDate;
+	boolean complete = false;
 
 	public ServerAuthenticationTransaction(URL serverURL, String curve)
 			throws InvalidAlgorithmParameterException,
@@ -153,6 +154,8 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 				throw new IOException("Invalid client signature");
 			}
 
+			complete = true;
+			
 			ByteArrayWriter signatureResponse = new ByteArrayWriter();
 
 			try {
@@ -175,5 +178,9 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		} finally {
 			writer.close();
 		}
+	}
+
+	public boolean isComplete() {
+		return complete;
 	}
 }
