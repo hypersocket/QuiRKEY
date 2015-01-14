@@ -11,6 +11,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.SignatureException;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Date;
 
@@ -22,6 +24,7 @@ import com.hypersocket.crypto.ByteArrayReader;
 import com.hypersocket.crypto.ByteArrayWriter;
 import com.hypersocket.crypto.ECCryptoProvider;
 import com.hypersocket.crypto.ECCryptoProviderFactory;
+import com.hypersocket.crypto.QuiRKEYException;
 import com.hypersocket.crypto.QuiRKEYTransaction;
 
 public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
@@ -38,7 +41,6 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 	byte[] Q_S;
 	byte[] signature;
 	PublicKey clientPublicKey;
-	String status;
 	Date creationDate;
 
 	public ServerAuthenticationTransaction(URL serverURL, String curve)
@@ -55,16 +57,10 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		this.Q_C = ecProvider.generateQ(ec);
 		this.authenticationId = new SecureRandom().nextInt();
 		this.creationDate = new Date();
-		this.status = "in progress";
-
 	}
 
 	public int getAuthenticationId() {
 		return authenticationId;
-	}
-
-	public String getStatus() {
-		return status;
 	}
 
 	public Date getCreationDate() {
@@ -86,39 +82,20 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 		}
 	}
 
-	private void readData(String encodedResponse) throws IOException {
-		ByteArrayReader reader = new ByteArrayReader(
-				Base64.decodeBase64(encodedResponse));
-		try {
-			int messageid = reader.read();
-			if(messageid!=MSG_AUTHENTICATION_PROCESS) {
-				throw new IOException("Unexpected message id " + messageid);
-			}
-			authenticationId = (int) reader.readInt();
-			mobileId = reader.readString();
-			Q_S = reader.readBinaryString();
-			signature = reader.readBinaryString();
-		} catch (IOException e) {
-			throw new IOException(e);
-		} finally {
-			reader.close();
-		}
-
-	}
-
 	public String getMobileId() throws IOException {
 		return mobileId;
 	}
-	
-	public String generateErrorMessage(int errorCode, String errorDesc) throws IOException {
-		
+
+	public String generateErrorMessage(int errorCode, String errorDesc)
+			throws IOException {
+
 		ByteArrayWriter msg = new ByteArrayWriter();
 
 		try {
 			msg.write(MSG_AUTHENTICATION_FAILURE);
 			msg.writeInt(errorCode);
 			msg.writeString(errorDesc);
-			
+
 			return Base64.encodeBase64String(msg.toByteArray());
 		} finally {
 			msg.close();
@@ -127,9 +104,30 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 
 	public String processAuthenticationRequest(String encodedResponse,
 			byte[] serverPrivateKey, byte[] serverPublicKey, String username,
-			String mobileName, byte[] clientKey) throws IOException {
+			String mobileName, byte[] clientKey) throws IOException,
+			QuiRKEYException {
 
-		readData(encodedResponse);
+		ByteArrayReader reader = new ByteArrayReader(
+				Base64.decodeBase64(encodedResponse));
+		try {
+			int messageid = reader.read();
+			if (messageid != MSG_AUTHENTICATION_PROCESS) {
+				if (messageid == MSG_AUTHENTICATION_FAILURE) {
+					throw new QuiRKEYException((int) reader.readInt(),
+							reader.readString());
+				} else {
+					throw new IOException("Unexpected message id " + messageid
+							+ " in registration flow");
+				}
+			}
+			authenticationId = (int) reader.readInt();
+			mobileId = reader.readString();
+			Q_S = reader.readBinaryString();
+			signature = reader.readBinaryString();
+		} finally {
+			reader.close();
+		}
+
 		ByteArrayWriter writer = new ByteArrayWriter();
 		try {
 
@@ -152,8 +150,7 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 					serverURL.toExternalForm());
 
 			if (!ecProvider.verify(clientPublicKey, signature, exchangeHash)) {
-				this.status = "failed";
-				throw new Exception("Invalid client signature");
+				throw new IOException("Invalid client signature");
 			}
 
 			ByteArrayWriter signatureResponse = new ByteArrayWriter();
@@ -165,16 +162,17 @@ public class ServerAuthenticationTransaction extends QuiRKEYTransaction {
 				writer.writeBinaryString(ecProvider.sign(kf
 						.generatePrivate(new PKCS8EncodedKeySpec(
 								serverPrivateKey)), exchangeHash));
-				this.status = "success";
 				return Base64.encodeBase64String(writer.toByteArray());
 
 			} finally {
-				
+
 				signatureResponse.close();
 			}
-		} catch (Exception e) {
+		} catch (NoSuchAlgorithmException | NoSuchProviderException
+				| InvalidKeySpecException | InvalidKeyException
+				| IllegalStateException | SignatureException e) {
 			throw new IOException(e);
-		}finally{
+		} finally {
 			writer.close();
 		}
 	}

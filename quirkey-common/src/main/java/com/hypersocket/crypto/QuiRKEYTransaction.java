@@ -1,6 +1,9 @@
 package com.hypersocket.crypto;
 
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 
 public class QuiRKEYTransaction {
 
@@ -18,7 +21,8 @@ public class QuiRKEYTransaction {
 	public byte[] generateExchangeHash(byte[] Q_C, byte[] Q_S,
 			byte[] serverKey, byte[] clientKey, String username,
 			String mobileId, int registrationId, BigInteger secret,
-			String mobileName, String url) throws Exception {
+			String mobileName, String url) throws UnsupportedEncodingException,
+			NoSuchAlgorithmException, NoSuchProviderException  {
 
 		AbstractDigest hash = new AbstractDigest("SHA-1");
 

@@ -1,4 +1,4 @@
-package com.hypersocket.quirkey.client;
+package com.hypersocket.crypto;
 
 @SuppressWarnings("serial")
 public class QuiRKEYException extends Exception {
@@ -8,7 +8,7 @@ public class QuiRKEYException extends Exception {
 		super(message);
 		this.errorCode = errorCode;
 	}
-	
+
 	public int getErrorCode() {
 		return errorCode;
 	}

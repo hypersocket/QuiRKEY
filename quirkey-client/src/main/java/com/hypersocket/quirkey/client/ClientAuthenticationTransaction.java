@@ -2,9 +2,15 @@ package com.hypersocket.quirkey.client;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.PublicKey;
+import java.security.SignatureException;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 
 import javax.crypto.KeyAgreement;
@@ -15,6 +21,7 @@ import com.hypersocket.crypto.ByteArrayReader;
 import com.hypersocket.crypto.ByteArrayWriter;
 import com.hypersocket.crypto.ECCryptoProvider;
 import com.hypersocket.crypto.ECCryptoProviderFactory;
+import com.hypersocket.crypto.QuiRKEYException;
 import com.hypersocket.crypto.QuiRKEYTransaction;
 
 public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
@@ -38,8 +45,14 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
 		try {
 			int messageId = reader.read();
-			if (messageId!=MSG_AUTHENTICATION_INFO) {
-				throw new QuiRKEYException(0, "Invalid message id " + messageId);
+			if (messageId != MSG_AUTHENTICATION_INFO) {
+				if (messageId == MSG_AUTHENTICATION_FAILURE) {
+					throw new QuiRKEYException((int) reader.readInt(),
+							reader.readString());
+				} else {
+					throw new IOException("Unexpected message id " + messageId
+							+ " in registration flow");
+				}
 			}
 			authenticationId = (int) reader.readInt();
 			url = reader.readString();
@@ -62,9 +75,9 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 
 			// Calculate diffe hellman k value
 			secret = new BigInteger(tmp);
-		} catch (QuiRKEYException e) {
-			throw e;
-		} catch (Exception e) {
+		} catch (NoSuchAlgorithmException | NoSuchProviderException
+				| InvalidAlgorithmParameterException | InvalidKeyException
+				| IllegalStateException | InvalidKeySpecException e) {
 			throw new IOException(e);
 		} finally {
 			reader.close();
@@ -106,7 +119,9 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 					clientExchangeHash));
 
 			return Base64.toBase64String(writer.toByteArray());
-		} catch (Exception e) {
+		} catch (NoSuchAlgorithmException | NoSuchProviderException
+				| InvalidKeyException | SignatureException
+				| InvalidKeySpecException e) {
 			throw new IOException(e);
 		} finally {
 			writer.close();
@@ -114,25 +129,30 @@ public class ClientAuthenticationTransaction extends QuiRKEYTransaction {
 	}
 
 	public boolean verifyAuthenticationResponse(String encodedResponse,
-			byte[] serverPublicKey) throws IOException,
-			QuiRKEYException {
+			byte[] serverPublicKey) throws IOException, QuiRKEYException {
 
 		ByteArrayReader reader = new ByteArrayReader(
 				Base64.decode(encodedResponse));
-		
 
 		try {
 			int messageId = reader.read();
-			
-			if (messageId!=MSG_AUTHENTICATION_SUCCESS) {
-				throw new QuiRKEYException((int)reader.readInt(), reader.readString());
+
+			if (messageId != MSG_AUTHENTICATION_SUCCESS) {
+				if (messageId == MSG_AUTHENTICATION_FAILURE) {
+					throw new QuiRKEYException((int) reader.readInt(),
+							reader.readString());
+				} else {
+					throw new IOException("Unexpected message id " + messageId
+							+ " in registration flow");
+				}
 			}
 
 			byte[] signature = reader.readBinaryString();
 
 			PublicKey publicKey = ecProvider.decodePublicKey(serverPublicKey);
 			return ecProvider.verify(publicKey, signature, clientExchangeHash);
-		} catch (Exception e) {
+		} catch (InvalidKeySpecException | NoSuchAlgorithmException
+				| NoSuchProviderException | InvalidKeyException | SignatureException e) {
 			throw new IOException(e);
 		} finally {
 			reader.close();
