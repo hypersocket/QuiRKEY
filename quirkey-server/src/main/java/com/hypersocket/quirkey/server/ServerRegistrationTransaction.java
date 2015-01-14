@@ -180,7 +180,7 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 				}
 				writer.writeBinaryString(ecProvider.sign(
 						serverKey.getPrivate(), exchangeHash));
-				complete = true;
+
 				return Base64.encodeBase64String(writer.toByteArray());
 
 			} finally {
@@ -207,8 +207,8 @@ public class ServerRegistrationTransaction extends QuiRKEYTransaction {
 			signature = reader.readBinaryString();
 
 			
-			return ecProvider.verify(clientPublicKey, signature, exchangeHash);
-			
+			complete =  ecProvider.verify(clientPublicKey, signature, exchangeHash);
+			return complete;
 		} catch (Exception e) {
 			throw new IOException(e);
 		} finally {
