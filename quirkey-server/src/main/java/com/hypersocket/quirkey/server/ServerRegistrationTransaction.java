@@ -13,7 +13,6 @@ import java.security.SecureRandom;
 import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Date;
-import java.util.UUID;
 
 import javax.crypto.KeyAgreement;
 

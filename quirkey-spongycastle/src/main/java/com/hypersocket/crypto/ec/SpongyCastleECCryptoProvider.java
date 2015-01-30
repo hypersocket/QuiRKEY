@@ -9,7 +9,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
-import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
@@ -22,8 +21,6 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.SignatureException;
-import java.security.spec.ECPoint;
-import java.security.spec.EllipticCurve;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 
@@ -42,6 +39,7 @@ import org.spongycastle.openssl.jcajce.JcaPEMKeyConverter;
 
 import com.hypersocket.crypto.ECCryptoProvider;
 
+@SuppressWarnings("deprecation")
 public class SpongyCastleECCryptoProvider implements ECCryptoProvider {
 
 	ECNamedCurveParameterSpec namedSpec;
